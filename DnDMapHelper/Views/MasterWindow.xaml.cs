@@ -286,7 +286,7 @@ public partial class MasterWindow : Window
                 {
                     _session.SelectTarget(hitTarget.Id);
                     MapView.Refresh();
-                    UpdateStatus($"Выбрана цель: {hitTarget.Label} (Delete — удалить).");
+                    UpdateStatus($"Выбрана цель: {hitTarget.Label}. Двойной клик — подпись, Delete — удалить.");
                     break;
                 }
 
@@ -295,7 +295,7 @@ public partial class MasterWindow : Window
                 {
                     _session.SelectRegion(hitRegion.Id);
                     MapView.Refresh();
-                    UpdateStatus($"Область: «{hitRegion.Title}». Двойной ПКМ — текст, Delete — удалить.");
+                    UpdateStatus($"Область: «{hitRegion.Title}». Двойной клик — текст, Delete — удалить.");
                 }
                 break;
         }
@@ -307,6 +307,14 @@ public partial class MasterWindow : Window
             return;
 
         var canvasPoint = e.GetPosition(MapView);
+
+        var hitRegion = MapView.HitTestRegion(canvasPoint);
+        if (hitRegion is not null)
+        {
+            EditRegion(hitRegion);
+            e.Handled = true;
+            return;
+        }
 
         var hitTarget = MapView.HitTestTarget(canvasPoint);
         if (hitTarget is null)
@@ -352,31 +360,13 @@ public partial class MasterWindow : Window
             return;
 
         var canvasPoint = e.GetPosition(MapView);
-
-        var hitRegion = MapView.HitTestRegion(canvasPoint);
-        if (hitRegion is not null)
-        {
-            if (e.ClickCount >= 2)
-            {
-                EditRegion(hitRegion);
-                e.Handled = true;
-                return;
-            }
-
-            _session.SelectRegion(hitRegion.Id);
-            MapView.Refresh();
-            UpdateStatus($"Область: «{hitRegion.Title}». Двойной ПКМ — текст, Delete — удалить.");
-            e.Handled = true;
-            return;
-        }
-
         var hitTarget = MapView.HitTestTarget(canvasPoint);
         if (hitTarget is null)
             return;
 
         _session.SelectTarget(hitTarget.Id);
         MapView.Refresh();
-        UpdateStatus($"Выбрана цель: {hitTarget.Label} (Delete — удалить).");
+        UpdateStatus($"Выбрана цель: {hitTarget.Label}. Двойной клик — подпись, Delete — удалить.");
         e.Handled = true;
     }
 
@@ -693,7 +683,7 @@ public partial class MasterWindow : Window
 
         StatusText.Text = _currentTool switch
         {
-            MasterTool.Navigate => "Обзор: клик — цель или область; двойной клик — подпись цели; у области — двойной ПКМ — текст; Delete — удалить.",
+            MasterTool.Navigate => "Обзор: клик — выбрать цель или область; двойной клик — редактировать; Delete — удалить.",
             MasterTool.PartyMarker => "Кликните на карте, чтобы поставить метку партии (синий щит).",
             MasterTool.TargetMarker => "Кликните на карте — метка цели и окно для подписи (например, «Логово врага»).",
             MasterTool.DrawPath => "Рисуйте маршрут к выбранной цели. Каждый новый начинается с конца предыдущего. Очередь — справа.",
