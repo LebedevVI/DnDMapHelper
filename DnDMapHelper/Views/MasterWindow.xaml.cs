@@ -131,6 +131,7 @@ public partial class MasterWindow : Window
                 _session.Targets.Add(target);
                 _session.SelectTarget(target.Id);
                 MapView.Refresh();
+                EditTargetLabel(target);
                 break;
 
             case MasterTool.DrawPath:
@@ -155,6 +156,31 @@ public partial class MasterWindow : Window
                 }
                 break;
         }
+    }
+
+    private void MapView_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (_session.MapImage is null)
+            return;
+
+        var hitTarget = MapView.HitTestTarget(e.GetPosition(MapView));
+        if (hitTarget is null)
+            return;
+
+        EditTargetLabel(hitTarget);
+        e.Handled = true;
+    }
+
+    private void EditTargetLabel(TargetMarker target)
+    {
+        var dialog = new TargetLabelDialog(target.Label) { Owner = this };
+        if (dialog.ShowDialog() != true)
+            return;
+
+        target.Label = dialog.Label;
+        _session.SelectTarget(target.Id);
+        MapView.Refresh();
+        UpdateStatus($"Подпись цели: «{target.Label}»");
     }
 
     private void MapView_MouseMove(object sender, MouseEventArgs e)
@@ -353,9 +379,9 @@ public partial class MasterWindow : Window
 
         StatusText.Text = _currentTool switch
         {
-            MasterTool.Navigate => "Обзор: клик по крестику цели — выбрать активную цель для маршрута.",
+            MasterTool.Navigate => "Обзор: клик по цели — выбрать для маршрута; двойной клик — изменить подпись.",
             MasterTool.PartyMarker => "Кликните на карте, чтобы поставить метку партии (синий щит).",
-            MasterTool.TargetMarker => "Кликните, чтобы добавить метку цели (красный крестик).",
+            MasterTool.TargetMarker => "Кликните на карте — метка цели и окно для подписи (например, «Логово врага»).",
             MasterTool.DrawPath => "Зажмите ЛКМ и ведите кривую от партии к выбранной цели.",
             MasterTool.DrawRegion => "Выделите прямоугольник — откроется окно для текста справки.",
             _ => string.Empty

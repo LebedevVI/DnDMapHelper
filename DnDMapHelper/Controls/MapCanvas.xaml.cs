@@ -215,13 +215,16 @@ public partial class MapCanvas : UserControl
                 var label = new TextBlock
                 {
                     Text = target.Label,
-                    FontSize = 11,
-                    FontWeight = FontWeights.Bold,
-                    Foreground = Brushes.Gold,
-                    Background = new SolidColorBrush(Color.FromArgb(160, 30, 20, 10))
+                    FontFamily = new FontFamily("Georgia"),
+                    FontSize = isSelected ? 13 : 12,
+                    FontWeight = FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(Color.FromRgb(255, 236, 179)),
+                    Background = new SolidColorBrush(Color.FromArgb(200, 45, 28, 12)),
+                    Padding = new Thickness(4, 2, 4, 2)
                 };
-                Canvas.SetLeft(label, center.X + size / 2 + 2);
-                Canvas.SetTop(label, center.Y - 8);
+                label.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                Canvas.SetLeft(label, center.X - label.DesiredSize.Width / 2);
+                Canvas.SetTop(label, center.Y + size / 2 + 4);
                 OverlayCanvas.Children.Add(label);
             }
         }

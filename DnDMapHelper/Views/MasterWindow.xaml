@@ -48,6 +48,7 @@
             <controls:MapCanvas x:Name="MapView"
                                 HighlightRegions="True"
                                 MouseLeftButtonDown="MapView_MouseLeftButtonDown"
+                                MouseDoubleClick="MapView_MouseDoubleClick"
                                 MouseMove="MapView_MouseMove"
                                 MouseLeftButtonUp="MapView_MouseLeftButtonUp"/>
         </Border>

@@ -1,0 +1,31 @@
+<Window x:Class="DnDMapHelper.Views.TargetLabelDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Подпись цели"
+        Width="420" Height="220"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Style="{StaticResource FantasyWindow}">
+    <Border Style="{StaticResource FantasyPanel}" Margin="12">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Text="Имя метки цели" Style="{StaticResource FantasyTitle}" FontSize="18" Margin="0,0,0,12"/>
+
+            <StackPanel Grid.Row="1" Margin="0,0,0,12">
+                <TextBlock Text="Например: Логово врага, Мост, Деревня" Margin="0,0,0,6" FontStyle="Italic" Opacity="0.75"/>
+                <TextBox x:Name="LabelBox" Style="{StaticResource FantasyTextBox}" Height="36"
+                         AcceptsReturn="False" TextWrapping="NoWrap" MaxLength="64"/>
+            </StackPanel>
+
+            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Отмена" Style="{StaticResource FantasyButton}" Width="100" Click="Cancel_Click"/>
+                <Button Content="Сохранить" Style="{StaticResource FantasyButton}" Width="120" Click="Save_Click" IsDefault="True"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>
