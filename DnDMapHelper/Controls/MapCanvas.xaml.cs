@@ -206,29 +206,9 @@ public partial class MapCanvas : UserControl
             var isSelected = _session.SelectedTargetId == target.Id;
             var size = isSelected ? 28 : 22;
 
-            var crossH = new Line
-            {
-                X1 = center.X - size / 2,
-                Y1 = center.Y,
-                X2 = center.X + size / 2,
-                Y2 = center.Y,
-                Stroke = new SolidColorBrush(isSelected ? Color.FromRgb(180, 30, 0) : Color.FromRgb(100, 20, 0)),
-                StrokeThickness = isSelected ? 4 : 3,
-                Tag = target
-            };
-            var crossV = new Line
-            {
-                X1 = center.X,
-                Y1 = center.Y - size / 2,
-                X2 = center.X,
-                Y2 = center.Y + size / 2,
-                Stroke = crossH.Stroke,
-                StrokeThickness = crossH.StrokeThickness,
-                Tag = target
-            };
-
-            OverlayCanvas.Children.Add(crossH);
-            OverlayCanvas.Children.Add(crossV);
+            var cross = HandDrawnMarkerHelper.CreateTargetCross(center, size, isSelected, target.Id);
+            cross.Tag = target;
+            OverlayCanvas.Children.Add(cross);
 
             if (!string.IsNullOrWhiteSpace(target.Label))
             {
