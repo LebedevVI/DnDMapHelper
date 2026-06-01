@@ -9,13 +9,28 @@ public partial class RegionTextDialog : Window
         InitializeComponent();
         TitleBox.Text = title;
         DescriptionBox.Text = description;
+        Loaded += OnLoaded;
     }
 
     public string RegionTitle => TitleBox.Text.Trim();
     public string RegionDescription => DescriptionBox.Text.Trim();
 
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        TitleBox.Focus();
+        TitleBox.CaretIndex = TitleBox.Text.Length;
+    }
+
     private void Save_Click(object sender, RoutedEventArgs e)
     {
+        if (string.IsNullOrWhiteSpace(TitleBox.Text))
+        {
+            MessageBox.Show(this, "Введите заголовок области.", "Описание области",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            TitleBox.Focus();
+            return;
+        }
+
         DialogResult = true;
         Close();
     }

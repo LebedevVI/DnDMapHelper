@@ -99,6 +99,7 @@ public partial class MapCanvas : UserControl
             or nameof(GameSession.Routes)
             or nameof(GameSession.SelectedRouteIndex)
             or nameof(GameSession.SelectedTargetId)
+            or nameof(GameSession.SelectedRegionId)
             or null)
         {
             Dispatcher.BeginInvoke(RedrawOverlay);
@@ -153,8 +154,9 @@ public partial class MapCanvas : UserControl
     private void DrawRegion(MapRegion region)
     {
         var rect = _viewport.ImageToCanvas(region.Bounds);
+        var isSelected = !IsPlayerMode && _session.SelectedRegionId == region.Id;
         var fill = HighlightRegions
-            ? new SolidColorBrush(Color.FromArgb(60, 201, 168, 108))
+            ? new SolidColorBrush(Color.FromArgb((byte)(isSelected ? 90 : 60), 201, 168, 108))
             : new SolidColorBrush(Color.FromArgb(25, 201, 168, 108));
 
         var shape = new Rectangle
@@ -162,9 +164,11 @@ public partial class MapCanvas : UserControl
             Width = Math.Max(1, rect.Width),
             Height = Math.Max(1, rect.Height),
             Fill = fill,
-            Stroke = new SolidColorBrush(Color.FromRgb(139, 105, 20)),
-            StrokeThickness = HighlightRegions ? 2.5 : 1.5,
-            StrokeDashArray = HighlightRegions ? null : [4, 3],
+            Stroke = new SolidColorBrush(isSelected
+                ? Color.FromRgb(139, 37, 0)
+                : Color.FromRgb(139, 105, 20)),
+            StrokeThickness = isSelected ? 3 : HighlightRegions ? 2.5 : 1.5,
+            StrokeDashArray = isSelected ? null : HighlightRegions ? null : [4, 3],
             Tag = region
         };
 

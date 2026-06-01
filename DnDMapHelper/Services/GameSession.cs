@@ -79,6 +79,29 @@ public sealed class GameSession : INotifyPropertyChanged
             ? Targets.FirstOrDefault(t => t.Id == SelectedTargetId.Value)
             : null;
 
+    private Guid? _selectedRegionId;
+
+    public Guid? SelectedRegionId
+    {
+        get => _selectedRegionId;
+        set
+        {
+            _selectedRegionId = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(SelectedRegion));
+            OnPropertyChanged(nameof(HasSelectedRegion));
+            NotifyRegionsChanged();
+        }
+    }
+
+    public bool HasSelectedRegion =>
+        SelectedRegionId.HasValue && Regions.Any(r => r.Id == SelectedRegionId.Value);
+
+    public MapRegion? SelectedRegion =>
+        SelectedRegionId.HasValue
+            ? Regions.FirstOrDefault(r => r.Id == SelectedRegionId.Value)
+            : null;
+
     /// <summary>Черновик маршрута при рисовании на экране мастера.</summary>
     public IReadOnlyList<Point> DraftPath
     {
@@ -130,7 +153,32 @@ public sealed class GameSession : INotifyPropertyChanged
     public IReadOnlyList<Point> ActiveMovementPath =>
         _activeMovementPath ?? ActiveRoute?.Points ?? [];
 
-    public void SelectTarget(Guid id) => SelectedTargetId = id;
+    public void SelectTarget(Guid id)
+    {
+        SelectedTargetId = id;
+        if (SelectedRegionId.HasValue)
+            SelectedRegionId = null;
+    }
+
+    public void SelectRegion(Guid id)
+    {
+        SelectedRegionId = id;
+        SelectedTargetId = null;
+    }
+
+    public bool RemoveRegion(Guid regionId)
+    {
+        var region = Regions.FirstOrDefault(r => r.Id == regionId);
+        if (region is null)
+            return false;
+
+        Regions.Remove(region);
+        if (SelectedRegionId == regionId)
+            SelectedRegionId = null;
+
+        NotifyRegionsChanged();
+        return true;
+    }
 
     public bool RemoveTarget(Guid targetId)
     {

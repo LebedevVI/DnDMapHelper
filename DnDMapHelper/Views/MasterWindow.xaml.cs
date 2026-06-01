@@ -88,6 +88,7 @@ public partial class MasterWindow : Window
         _session.PartyPosition = null;
         _session.ClearAllRoutes();
         _session.SelectedTargetId = null;
+        _session.SelectedRegionId = null;
         SyncRouteList();
         MapView.Refresh();
         UpdateStatus("Карта загружена. Разместите метку партии и цели.");
@@ -286,6 +287,15 @@ public partial class MasterWindow : Window
                     _session.SelectTarget(hitTarget.Id);
                     MapView.Refresh();
                     UpdateStatus($"Выбрана цель: {hitTarget.Label} (Delete — удалить).");
+                    break;
+                }
+
+                var hitRegion = MapView.HitTestRegion(canvasPoint);
+                if (hitRegion is not null)
+                {
+                    _session.SelectRegion(hitRegion.Id);
+                    MapView.Refresh();
+                    UpdateStatus($"Область: «{hitRegion.Title}». Двойной ПКМ — текст, Delete — удалить.");
                 }
                 break;
         }
@@ -296,12 +306,28 @@ public partial class MasterWindow : Window
         if (_session.MapImage is null)
             return;
 
-        var hitTarget = MapView.HitTestTarget(e.GetPosition(MapView));
+        var canvasPoint = e.GetPosition(MapView);
+
+        var hitTarget = MapView.HitTestTarget(canvasPoint);
         if (hitTarget is null)
             return;
 
         EditTargetLabel(hitTarget);
         e.Handled = true;
+    }
+
+    private void EditRegion(MapRegion region)
+    {
+        var dialog = new RegionTextDialog(region.Title, region.Description) { Owner = this };
+        if (dialog.ShowDialog() != true)
+            return;
+
+        region.Title = dialog.RegionTitle;
+        region.Description = dialog.RegionDescription;
+        _session.SelectRegion(region.Id);
+        _session.NotifyRegionsChanged();
+        MapView.Refresh();
+        UpdateStatus($"Область обновлена: «{region.Title}».");
     }
 
     private void EditTargetLabel(TargetMarker target)
@@ -325,7 +351,26 @@ public partial class MasterWindow : Window
         if (_session.MapImage is null)
             return;
 
-        var hitTarget = MapView.HitTestTarget(e.GetPosition(MapView));
+        var canvasPoint = e.GetPosition(MapView);
+
+        var hitRegion = MapView.HitTestRegion(canvasPoint);
+        if (hitRegion is not null)
+        {
+            if (e.ClickCount >= 2)
+            {
+                EditRegion(hitRegion);
+                e.Handled = true;
+                return;
+            }
+
+            _session.SelectRegion(hitRegion.Id);
+            MapView.Refresh();
+            UpdateStatus($"Область: «{hitRegion.Title}». Двойной ПКМ — текст, Delete — удалить.");
+            e.Handled = true;
+            return;
+        }
+
+        var hitTarget = MapView.HitTestTarget(canvasPoint);
         if (hitTarget is null)
             return;
 
@@ -340,12 +385,33 @@ public partial class MasterWindow : Window
         if (e.Key != Key.Delete)
             return;
 
+        var region = _session.SelectedRegion;
+        if (region is not null)
+        {
+            TryDeleteRegion(region);
+            e.Handled = true;
+            return;
+        }
+
         var target = _session.SelectedTarget;
         if (target is null)
             return;
 
         TryDeleteTarget(target);
         e.Handled = true;
+    }
+
+    private void TryDeleteRegion(MapRegion region)
+    {
+        if (MessageBox.Show(this, $"Удалить область «{region.Title}»?", "Удаление области",
+                MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+
+        if (!_session.RemoveRegion(region.Id))
+            return;
+
+        MapView.Refresh();
+        UpdateStatus($"Область «{region.Title}» удалена.");
     }
 
     private void TryDeleteTarget(TargetMarker target)
@@ -515,6 +581,11 @@ public partial class MasterWindow : Window
     {
         _isDrawingRegion = true;
         _regionStartCanvas = canvasStart;
+        CreateRegionPreview(canvasStart);
+    }
+
+    private void CreateRegionPreview(Point canvasStart)
+    {
         _regionPreview = new Rectangle
         {
             Stroke = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(139, 105, 20)),
@@ -573,12 +644,14 @@ public partial class MasterWindow : Window
             return;
         }
 
-        _session.Regions.Add(new MapRegion
+        var newRegion = new MapRegion
         {
             Bounds = imageRect,
             Title = dialog.RegionTitle,
             Description = dialog.RegionDescription
-        });
+        };
+        _session.Regions.Add(newRegion);
+        _session.SelectRegion(newRegion.Id);
         MapView.Refresh();
         UpdateStatus("Область с описанием добавлена.");
     }
@@ -620,11 +693,11 @@ public partial class MasterWindow : Window
 
         StatusText.Text = _currentTool switch
         {
-            MasterTool.Navigate => "Обзор: клик — выбрать цель; двойной клик — подпись. Delete — удалить выбранную цель.",
+            MasterTool.Navigate => "Обзор: клик — цель или область; двойной клик — подпись цели; у области — двойной ПКМ — текст; Delete — удалить.",
             MasterTool.PartyMarker => "Кликните на карте, чтобы поставить метку партии (синий щит).",
             MasterTool.TargetMarker => "Кликните на карте — метка цели и окно для подписи (например, «Логово врага»).",
             MasterTool.DrawPath => "Рисуйте маршрут к выбранной цели. Каждый новый начинается с конца предыдущего. Очередь — справа.",
-            MasterTool.DrawRegion => "Выделите прямоугольник — откроется окно для текста справки.",
+            MasterTool.DrawRegion => "Выделите прямоугольник — откроется окно для заголовка и текста справки.",
             _ => string.Empty
         };
     }
