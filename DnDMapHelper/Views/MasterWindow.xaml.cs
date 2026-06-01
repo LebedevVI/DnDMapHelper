@@ -406,8 +406,46 @@ public partial class MasterWindow : Window
 
         _pathPointsImage.Clear();
         SyncRouteList();
+        SwitchToNavigateTool();
+        SelectNextTargetInOrder(target);
         MapView.Refresh();
-        UpdateStatus($"Маршрут #{_session.Routes.Count} добавлен в очередь → «{target.Label}».");
+
+        if (_session.Targets.Count > 1 && _session.SelectedTarget is { } next)
+            UpdateStatus($"Маршрут #{_session.Routes.Count} → «{target.Label}». Следующая цель: «{next.Label}».");
+        else
+            UpdateStatus($"Маршрут #{_session.Routes.Count} добавлен в очередь → «{target.Label}».");
+    }
+
+    private void SwitchToNavigateTool()
+    {
+        if (ToolNavigate.IsChecked != true)
+            ToolNavigate.IsChecked = true;
+        else
+        {
+            _currentTool = MasterTool.Navigate;
+            UpdateStatus();
+        }
+    }
+
+    private void SelectNextTargetInOrder(TargetMarker current)
+    {
+        if (_session.Targets.Count <= 1)
+            return;
+
+        var index = -1;
+        for (var i = 0; i < _session.Targets.Count; i++)
+        {
+            if (_session.Targets[i].Id != current.Id)
+                continue;
+            index = i;
+            break;
+        }
+
+        if (index < 0)
+            return;
+
+        var next = _session.Targets[(index + 1) % _session.Targets.Count];
+        _session.SelectTarget(next.Id);
     }
 
     private List<Point> BuildPathWithEndpoints(List<Point> stroke)
