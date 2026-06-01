@@ -1,0 +1,37 @@
+<Window x:Class="DnDMapHelper.Views.RegionTextDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Описание области"
+        Width="480" Height="420"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Style="{StaticResource FantasyWindow}">
+    <Border Style="{StaticResource FantasyPanel}" Margin="12">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Text="Свиток земель" Style="{StaticResource FantasyTitle}" Margin="0,0,0,12"/>
+
+            <StackPanel Grid.Row="1" Margin="0,0,0,8">
+                <TextBlock Text="Заголовок:" Margin="0,0,0,4"/>
+                <TextBox x:Name="TitleBox" Style="{StaticResource FantasyTextBox}" Height="32"
+                         AcceptsReturn="False" TextWrapping="NoWrap"/>
+            </StackPanel>
+
+            <StackPanel Grid.Row="2" Margin="0,0,0,12">
+                <TextBlock Text="Описание для игроков:" Margin="0,0,0,4"/>
+                <TextBox x:Name="DescriptionBox" Style="{StaticResource FantasyTextBox}" MinHeight="180"/>
+            </StackPanel>
+
+            <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Отмена" Style="{StaticResource FantasyButton}" Width="100" Click="Cancel_Click"/>
+                <Button Content="Сохранить" Style="{StaticResource FantasyButton}" Width="120" Click="Save_Click" IsDefault="True"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

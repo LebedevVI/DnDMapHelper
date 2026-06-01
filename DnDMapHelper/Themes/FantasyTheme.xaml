@@ -1,0 +1,150 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Color x:Key="ParchmentLight">#F4E8C8</Color>
+    <Color x:Key="ParchmentMid">#E8D4A8</Color>
+    <Color x:Key="ParchmentDark">#C9A86C</Color>
+    <Color x:Key="InkBrown">#3D2914</Color>
+    <Color x:Key="InkGold">#8B6914</Color>
+    <Color x:Key="LeatherBrown">#5C3D1E</Color>
+    <Color x:Key="BloodRed">#8B2500</Color>
+
+    <SolidColorBrush x:Key="ParchmentBrush" Color="{StaticResource ParchmentLight}"/>
+    <SolidColorBrush x:Key="ParchmentMidBrush" Color="{StaticResource ParchmentMid}"/>
+    <SolidColorBrush x:Key="InkBrush" Color="{StaticResource InkBrown}"/>
+    <SolidColorBrush x:Key="GoldBrush" Color="{StaticResource InkGold}"/>
+    <SolidColorBrush x:Key="LeatherBrush" Color="{StaticResource LeatherBrown}"/>
+
+    <LinearGradientBrush x:Key="ScrollBackgroundBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#FAF0D0" Offset="0"/>
+        <GradientStop Color="#E5D4A0" Offset="0.5"/>
+        <GradientStop Color="#D4BC82" Offset="1"/>
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="LeatherButtonBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#7A5230" Offset="0"/>
+        <GradientStop Color="#5C3D1E" Offset="0.5"/>
+        <GradientStop Color="#4A3018" Offset="1"/>
+    </LinearGradientBrush>
+
+    <FontFamily x:Key="FantasyTitleFont">Palatino Linotype, Georgia, Times New Roman</FontFamily>
+    <FontFamily x:Key="FantasyBodyFont">Georgia, Palatino Linotype, Times New Roman</FontFamily>
+
+    <Style x:Key="FantasyWindow" TargetType="Window">
+        <Setter Property="Background" Value="{StaticResource ScrollBackgroundBrush}"/>
+        <Setter Property="FontFamily" Value="{StaticResource FantasyBodyFont}"/>
+        <Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
+    </Style>
+
+    <Style x:Key="FantasyPanel" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource ScrollBackgroundBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource LeatherBrush}"/>
+        <Setter Property="BorderThickness" Value="3"/>
+        <Setter Property="CornerRadius" Value="4"/>
+        <Setter Property="Padding" Value="12"/>
+        <Setter Property="Effect">
+            <Setter.Value>
+                <DropShadowEffect BlurRadius="8" ShadowDepth="3" Opacity="0.4" Color="#3D2914"/>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="FantasyTitle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource FantasyTitleFont}"/>
+        <Setter Property="FontSize" Value="22"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
+        <Setter Property="TextAlignment" Value="Center"/>
+    </Style>
+
+    <Style x:Key="FantasyButton" TargetType="Button">
+        <Setter Property="Background" Value="{StaticResource LeatherButtonBrush}"/>
+        <Setter Property="Foreground" Value="#FAF0D0"/>
+        <Setter Property="FontFamily" Value="{StaticResource FantasyTitleFont}"/>
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Padding" Value="16,8"/>
+        <Setter Property="Margin" Value="4"/>
+        <Setter Property="BorderBrush" Value="#3D2914"/>
+        <Setter Property="BorderThickness" Value="2"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="3"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background">
+                                <Setter.Value>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                        <GradientStop Color="#9A6840" Offset="0"/>
+                                        <GradientStop Color="#6B4528" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Setter.Value>
+                            </Setter>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.45"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="FantasyToolButton" TargetType="ToggleButton" BasedOn="{StaticResource {x:Type ToggleButton}}">
+        <Setter Property="Background" Value="{StaticResource ParchmentMidBrush}"/>
+        <Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
+        <Setter Property="FontFamily" Value="{StaticResource FantasyBodyFont}"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Padding" Value="10,6"/>
+        <Setter Property="Margin" Value="2"/>
+        <Setter Property="BorderBrush" Value="{StaticResource LeatherBrush}"/>
+        <Setter Property="BorderThickness" Value="2"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border x:Name="border"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="2"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="border" Property="Background" Value="#C9A86C"/>
+                            <Setter TargetName="border" Property="BorderBrush" Value="#8B2500"/>
+                            <Setter TargetName="border" Property="BorderThickness" Value="3"/>
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="border" Property="Background" Value="#F0E0B8"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="FantasyTextBox" TargetType="TextBox">
+        <Setter Property="Background" Value="#FFFDF5"/>
+        <Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
+        <Setter Property="FontFamily" Value="{StaticResource FantasyBodyFont}"/>
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="Padding" Value="8"/>
+        <Setter Property="BorderBrush" Value="{StaticResource LeatherBrush}"/>
+        <Setter Property="BorderThickness" Value="2"/>
+        <Setter Property="AcceptsReturn" Value="True"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+        <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
+    </Style>
+
+</ResourceDictionary>

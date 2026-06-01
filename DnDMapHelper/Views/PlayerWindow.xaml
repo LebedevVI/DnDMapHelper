@@ -1,0 +1,37 @@
+<Window x:Class="DnDMapHelper.Views.PlayerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:DnDMapHelper.Controls"
+        Title="Экран игры"
+        WindowState="Maximized"
+        WindowStyle="None"
+        Background="#0D0804"
+        KeyDown="Window_KeyDown">
+    <Grid>
+        <controls:MapCanvas x:Name="MapView"
+                            IsPlayerMode="True"
+                            ShowRegions="False"
+                            MouseLeftButtonDown="MapView_MouseLeftButtonDown"/>
+
+        <Border VerticalAlignment="Bottom" HorizontalAlignment="Center"
+                Margin="0,0,0,32" Background="Transparent">
+            <StackPanel Orientation="Horizontal">
+                <Button x:Name="MoveButton"
+                        Content="⚔ Движение"
+                        Style="{StaticResource FantasyButton}"
+                        FontSize="18"
+                        Padding="28,12"
+                        Click="MoveButton_Click"/>
+            </StackPanel>
+        </Border>
+
+        <Border x:Name="NoMapHint"
+                VerticalAlignment="Center" HorizontalAlignment="Center"
+                Style="{StaticResource FantasyPanel}"
+                Visibility="Collapsed"
+                MaxWidth="400">
+            <TextBlock Text="Мастер ещё не загрузил карту.&#x0a;Откройте экран мастера и загрузите изображение."
+                       TextAlignment="Center" FontSize="16" TextWrapping="Wrap"/>
+        </Border>
+    </Grid>
+</Window>

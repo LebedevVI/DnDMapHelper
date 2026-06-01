@@ -1,0 +1,27 @@
+<Window x:Class="DnDMapHelper.Views.ScrollPopupWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        SizeToContent="WidthAndHeight"
+        MaxWidth="520"
+        WindowStartupLocation="CenterScreen">
+    <Border Style="{StaticResource FantasyPanel}" MaxWidth="500" MinWidth="320">
+        <StackPanel>
+            <TextBlock x:Name="TitleText" Style="{StaticResource FantasyTitle}" FontSize="18" Margin="0,0,0,8"/>
+            <Border Height="2" Background="{StaticResource LeatherBrush}" Margin="0,0,0,12" Opacity="0.6"/>
+            <TextBlock x:Name="BodyText"
+                       FontFamily="{StaticResource FantasyBodyFont}"
+                       FontSize="15"
+                       Foreground="{StaticResource InkBrush}"
+                       TextWrapping="Wrap"
+                       LineHeight="22"
+                       MaxWidth="460"/>
+            <Button Content="Закрыть свиток" Style="{StaticResource FantasyButton}"
+                    HorizontalAlignment="Center" Margin="0,16,0,0"
+                    Click="Close_Click"/>
+        </StackPanel>
+    </Border>
+</Window>
