@@ -229,35 +229,39 @@ public partial class MapCanvas : UserControl
 
         if (isDraft)
         {
-            strokeColor = Color.FromRgb(160, 120, 40);
-            thickness = 2.5;
-            opacity = 0.7;
+            strokeColor = Color.FromRgb(255, 200, 60);
+            thickness = 4;
+            opacity = 1;
         }
         else if (isActive)
         {
-            strokeColor = Color.FromRgb(190, 50, 10);
+            strokeColor = Color.FromRgb(210, 70, 20);
             thickness = 3.5;
             opacity = 0.95;
         }
         else if (isHighlighted)
         {
-            strokeColor = Color.FromRgb(120, 80, 20);
+            strokeColor = Color.FromRgb(150, 95, 25);
             thickness = 3;
-            opacity = 0.85;
+            opacity = 0.9;
         }
         else
         {
-            strokeColor = Color.FromRgb(100, 70, 30);
-            thickness = 2;
-            opacity = 0.45;
+            strokeColor = Color.FromRgb(120, 80, 35);
+            thickness = 2.5;
+            opacity = 0.65;
         }
+
+        var dashPattern = isDraft
+            ? new DoubleCollection([6, 3])
+            : new DoubleCollection([10, 6]);
 
         var path = new Path
         {
             Data = geometry,
             Stroke = new SolidColorBrush(strokeColor),
             StrokeThickness = thickness,
-            StrokeDashArray = isDraft ? [4, 4] : isActive ? null : [6, 4],
+            StrokeDashArray = dashPattern,
             Fill = Brushes.Transparent,
             Opacity = opacity
         };
