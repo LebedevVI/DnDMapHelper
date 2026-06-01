@@ -207,7 +207,7 @@ public partial class MasterWindow : Window
         TogglePlayerWindowButton.Visibility = Visibility.Visible;
         TogglePlayerWindowButton.Content = _playerWindow.IsFullscreen
             ? "Свернуть игроков"
-            : "На весь экран ▶";
+            : "На весь экран";
     }
 
     private void Tool_Checked(object sender, RoutedEventArgs e)

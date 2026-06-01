@@ -17,13 +17,13 @@
                 Margin="12" Background="#AA2A1A08" CornerRadius="4" Padding="4">
             <StackPanel Orientation="Horizontal">
                 <Button x:Name="CompactModeButton"
-                        Content="⊟ Окно"
+                        Content="Окно"
                         Style="{StaticResource FantasyButton}"
                         FontSize="12" Padding="10,6"
                         Click="CompactModeButton_Click"
                         ToolTip="Свернуть в окно для отладки на одном мониторе"/>
                 <Button x:Name="FullscreenModeButton"
-                        Content="⛶ На весь экран"
+                        Content="На весь экран"
                         Style="{StaticResource FantasyButton}"
                         FontSize="12" Padding="10,6"
                         Visibility="Collapsed"

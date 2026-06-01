@@ -147,4 +147,99 @@
         <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
     </Style>
 
+    <LinearGradientBrush x:Key="ScrollTrackBrush" StartPoint="0,0" EndPoint="1,0">
+        <GradientStop Color="#E0CC98" Offset="0"/>
+        <GradientStop Color="#C9A86C" Offset="0.5"/>
+        <GradientStop Color="#B89860" Offset="1"/>
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="ScrollThumbBrush" StartPoint="0,0" EndPoint="1,0">
+        <GradientStop Color="#FAF0D0" Offset="0"/>
+        <GradientStop Color="#E8D4A8" Offset="0.5"/>
+        <GradientStop Color="#D4BC82" Offset="1"/>
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="ScrollThumbHoverBrush" StartPoint="0,0" EndPoint="1,0">
+        <GradientStop Color="#FFF8E8" Offset="0"/>
+        <GradientStop Color="#E5C890" Offset="1"/>
+    </LinearGradientBrush>
+
+    <!-- Ползунок: «жердь» свитка -->
+    <Style x:Key="FantasyScrollThumb" TargetType="Thumb">
+        <Setter Property="SnapsToDevicePixels" Value="True"/>
+        <Setter Property="OverridesDefaultStyle" Value="True"/>
+        <Setter Property="MinHeight" Value="28"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Thumb">
+                    <Border x:Name="ThumbBorder"
+                            Margin="3,2"
+                            CornerRadius="5"
+                            BorderBrush="{StaticResource LeatherBrush}"
+                            BorderThickness="1"
+                            Background="{StaticResource ScrollThumbBrush}">
+                        <Border Margin="4,0" BorderBrush="#8B6914" BorderThickness="0,0,0,0" Opacity="0.35">
+                            <Rectangle Width="2" HorizontalAlignment="Center" RadiusX="1" RadiusY="1"
+                                       Fill="{StaticResource LeatherBrush}" Opacity="0.5"/>
+                        </Border>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="ThumbBorder" Property="Background" Value="{StaticResource ScrollThumbHoverBrush}"/>
+                            <Setter TargetName="ThumbBorder" Property="BorderBrush" Value="#8B6914"/>
+                        </Trigger>
+                        <Trigger Property="IsDragging" Value="True">
+                            <Setter TargetName="ThumbBorder" Property="Background" Value="#C9A86C"/>
+                            <Setter TargetName="ThumbBorder" Property="BorderBrush" Value="#8B2500"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Вертикальная полоса прокрутки в стиле переплёта свитка -->
+    <Style x:Key="FantasyScrollBar" TargetType="ScrollBar">
+        <Setter Property="SnapsToDevicePixels" Value="True"/>
+        <Setter Property="OverridesDefaultStyle" Value="True"/>
+        <Setter Property="Width" Value="18"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ScrollBar">
+                    <Grid Width="{TemplateBinding Width}">
+                        <Border Background="{StaticResource ScrollTrackBrush}"
+                                BorderBrush="{StaticResource LeatherBrush}"
+                                BorderThickness="1,1,1,1"
+                                CornerRadius="4"
+                                Margin="0,1"/>
+                        <Track x:Name="PART_Track" IsDirectionReversed="True" Focusable="False">
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton Command="ScrollBar.LineUpCommand" Focusable="False">
+                                    <RepeatButton.Template>
+                                        <ControlTemplate TargetType="RepeatButton">
+                                            <Border Background="Transparent" Height="0"/>
+                                        </ControlTemplate>
+                                    </RepeatButton.Template>
+                                </RepeatButton>
+                            </Track.DecreaseRepeatButton>
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton Command="ScrollBar.LineDownCommand" Focusable="False">
+                                    <RepeatButton.Template>
+                                        <ControlTemplate TargetType="RepeatButton">
+                                            <Border Background="Transparent" Height="0"/>
+                                        </ControlTemplate>
+                                    </RepeatButton.Template>
+                                </RepeatButton>
+                            </Track.IncreaseRepeatButton>
+                            <Track.Thumb>
+                                <Thumb Style="{StaticResource FantasyScrollThumb}"/>
+                            </Track.Thumb>
+                        </Track>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
 </ResourceDictionary>
