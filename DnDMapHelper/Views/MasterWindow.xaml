@@ -77,8 +77,6 @@
 
                 <ListBox x:Name="RouteList" Grid.Row="1"
                          SelectionChanged="RouteList_SelectionChanged"
-                         Background="Transparent" BorderThickness="0"
-                         FontFamily="{StaticResource FantasyBodyFont}"
                          FontSize="13">
                     <ListBox.ItemTemplate>
                         <DataTemplate>

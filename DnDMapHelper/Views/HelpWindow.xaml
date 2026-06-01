@@ -21,9 +21,6 @@
                           VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled"
                           Padding="0,0,4,0">
-                <ScrollViewer.Resources>
-                    <Style TargetType="ScrollBar" BasedOn="{StaticResource FantasyScrollBar}"/>
-                </ScrollViewer.Resources>
                 <StackPanel x:Name="SectionsPanel"/>
             </ScrollViewer>
 

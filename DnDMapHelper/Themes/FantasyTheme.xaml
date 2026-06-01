@@ -134,8 +134,17 @@
         </Setter>
     </Style>
 
+    <LinearGradientBrush x:Key="InputParchmentBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#F0E4C0" Offset="0"/>
+        <GradientStop Color="#E8D4A8" Offset="0.55"/>
+        <GradientStop Color="#D9C088" Offset="1"/>
+    </LinearGradientBrush>
+
+    <SolidColorBrush x:Key="InputFocusBorderBrush" Color="#8B6914"/>
+    <SolidColorBrush x:Key="SelectionParchmentBrush" Color="#C9A86C"/>
+
     <Style x:Key="FantasyTextBox" TargetType="TextBox">
-        <Setter Property="Background" Value="#FFFDF5"/>
+        <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
         <Setter Property="FontFamily" Value="{StaticResource FantasyBodyFont}"/>
         <Setter Property="FontSize" Value="14"/>
@@ -145,6 +154,84 @@
         <Setter Property="AcceptsReturn" Value="True"/>
         <Setter Property="TextWrapping" Value="Wrap"/>
         <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
+        <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
+        <Setter Property="CaretBrush" Value="{StaticResource InkBrush}"/>
+        <Setter Property="SelectionBrush" Value="{StaticResource SelectionParchmentBrush}"/>
+        <Setter Property="SelectionTextBrush" Value="{StaticResource InkBrush}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <Border x:Name="border"
+                            Background="{StaticResource InputParchmentBrush}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="3">
+                        <ScrollViewer x:Name="PART_ContentHost"
+                                        Focusable="False"
+                                        HorizontalScrollBarVisibility="{TemplateBinding HorizontalScrollBarVisibility}"
+                                        VerticalScrollBarVisibility="{TemplateBinding VerticalScrollBarVisibility}"
+                                        Margin="{TemplateBinding Padding}"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsFocused" Value="True">
+                            <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource InputFocusBorderBrush}"/>
+                            <Setter TargetName="border" Property="BorderThickness" Value="2"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="border" Property="Opacity" Value="0.55"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="FantasyListBox" TargetType="ListBox">
+        <Setter Property="Background" Value="#55E8D4A8"/>
+        <Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
+        <Setter Property="FontFamily" Value="{StaticResource FantasyBodyFont}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource LeatherBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Padding" Value="4"/>
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+        <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
+    </Style>
+
+    <Style x:Key="FantasyListBoxItem" TargetType="ListBoxItem">
+        <Setter Property="SnapsToDevicePixels" Value="True"/>
+        <Setter Property="Padding" Value="6,4"/>
+        <Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListBoxItem">
+                    <Border x:Name="Bd" Padding="{TemplateBinding Padding}"
+                            Background="Transparent"
+                            BorderBrush="Transparent"
+                            BorderThickness="1"
+                            CornerRadius="2">
+                        <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#66E8D4A8"/>
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="#998B6914"/>
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#AAC9A86C"/>
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource LeatherBrush}"/>
+                        </Trigger>
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="IsSelected" Value="True"/>
+                                <Condition Property="Selector.IsSelectionActive" Value="False"/>
+                            </MultiTrigger.Conditions>
+                            <Setter TargetName="Bd" Property="Background" Value="#99C9A86C"/>
+                        </MultiTrigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <LinearGradientBrush x:Key="ScrollTrackBrush" StartPoint="0,0" EndPoint="1,0">
@@ -240,6 +327,54 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+        <Style.Triggers>
+            <Trigger Property="Orientation" Value="Horizontal">
+                <Setter Property="Width" Value="Auto"/>
+                <Setter Property="Height" Value="18"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ScrollBar">
+                            <Grid Height="{TemplateBinding Height}">
+                                <Border Background="{StaticResource ScrollTrackBrush}"
+                                        BorderBrush="{StaticResource LeatherBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="4"
+                                        Margin="1,0"/>
+                                <Track x:Name="PART_Track" Focusable="False">
+                                    <Track.DecreaseRepeatButton>
+                                        <RepeatButton Command="ScrollBar.LineLeftCommand" Focusable="False">
+                                            <RepeatButton.Template>
+                                                <ControlTemplate TargetType="RepeatButton">
+                                                    <Border Background="Transparent" Width="0"/>
+                                                </ControlTemplate>
+                                            </RepeatButton.Template>
+                                        </RepeatButton>
+                                    </Track.DecreaseRepeatButton>
+                                    <Track.IncreaseRepeatButton>
+                                        <RepeatButton Command="ScrollBar.LineRightCommand" Focusable="False">
+                                            <RepeatButton.Template>
+                                                <ControlTemplate TargetType="RepeatButton">
+                                                    <Border Background="Transparent" Width="0"/>
+                                                </ControlTemplate>
+                                            </RepeatButton.Template>
+                                        </RepeatButton>
+                                    </Track.IncreaseRepeatButton>
+                                    <Track.Thumb>
+                                        <Thumb Style="{StaticResource FantasyScrollThumb}"/>
+                                    </Track.Thumb>
+                                </Track>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Trigger>
+        </Style.Triggers>
     </Style>
+
+    <!-- Глобальные стили по умолчанию -->
+    <Style TargetType="TextBox" BasedOn="{StaticResource FantasyTextBox}"/>
+    <Style TargetType="ScrollBar" BasedOn="{StaticResource FantasyScrollBar}"/>
+    <Style TargetType="ListBox" BasedOn="{StaticResource FantasyListBox}"/>
+    <Style TargetType="ListBoxItem" BasedOn="{StaticResource FantasyListBoxItem}"/>
 
 </ResourceDictionary>
