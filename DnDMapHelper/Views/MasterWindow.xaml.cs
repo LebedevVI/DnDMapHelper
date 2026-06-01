@@ -20,6 +20,7 @@ public partial class MasterWindow : Window
     private readonly List<Point> _pathPointsImage = [];
     private Rectangle? _regionPreview;
     private PlayerWindow? _playerWindow;
+    private readonly PartyMovementController _movement = PartyMovementController.Current;
 
     public MasterWindow()
     {
@@ -27,14 +28,40 @@ public partial class MasterWindow : Window
         ToolNavigate.IsChecked = true;
         RouteList.ItemsSource = _session.Routes;
         _session.Routes.CollectionChanged += (_, _) => Dispatcher.BeginInvoke(SyncRouteList);
+
+        _movement.MovementFrame += OnMovementFrame;
+        _movement.MovementStateChanged += UpdateMoveButton;
+
         UpdateStatus();
         UpdateRouteQueueHint();
+        UpdateMoveButton();
         _session.PropertyChanged += (_, e) =>
         {
             UpdateStatus();
             if (e.PropertyName is nameof(GameSession.Routes) or nameof(GameSession.SelectedRouteIndex))
                 UpdateRouteQueueHint();
+            if (e.PropertyName is nameof(GameSession.Routes)
+                or nameof(GameSession.HasRoutes)
+                or nameof(GameSession.ActiveRoute)
+                or nameof(GameSession.IsPartyMoving)
+                or nameof(GameSession.CanStartMovement))
+                UpdateMoveButton();
         };
+    }
+
+    private void OnMovementFrame()
+    {
+        MapView.Refresh();
+        _playerWindow?.RefreshMap();
+    }
+
+    private void MoveButton_Click(object sender, RoutedEventArgs e) =>
+        _movement.TryStartMovement();
+
+    private void UpdateMoveButton()
+    {
+        MoveButton.IsEnabled = _movement.CanStart;
+        MoveButton.Content = _movement.GetMoveButtonLabel();
     }
 
     private void LoadMap_Click(object sender, RoutedEventArgs e)
@@ -143,8 +170,38 @@ public partial class MasterWindow : Window
         }
 
         _playerWindow = new PlayerWindow { Owner = this };
-        _playerWindow.Closed += (_, _) => _playerWindow = null;
+        _playerWindow.Closed += (_, _) =>
+        {
+            _playerWindow = null;
+            UpdatePlayerWindowToggleButton();
+        };
         _playerWindow.Show();
+        UpdatePlayerWindowToggleButton();
+    }
+
+    private void TogglePlayerWindow_Click(object sender, RoutedEventArgs e)
+    {
+        if (_playerWindow is not { IsLoaded: true })
+            return;
+
+        _playerWindow.ToggleDisplayMode();
+        UpdatePlayerWindowToggleButton();
+    }
+
+    private void UpdatePlayerWindowToggleButton()
+    {
+        if (_playerWindow is not { IsLoaded: true })
+        {
+            TogglePlayerWindowButton.IsEnabled = false;
+            TogglePlayerWindowButton.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        TogglePlayerWindowButton.IsEnabled = true;
+        TogglePlayerWindowButton.Visibility = Visibility.Visible;
+        TogglePlayerWindowButton.Content = _playerWindow.IsFullscreen
+            ? "Свернуть игроков"
+            : "На весь экран ▶";
     }
 
     private void Tool_Checked(object sender, RoutedEventArgs e)
@@ -564,5 +621,13 @@ public partial class MasterWindow : Window
             MasterTool.DrawRegion => "Выделите прямоугольник — откроется окно для текста справки.",
             _ => string.Empty
         };
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        _movement.MovementFrame -= OnMovementFrame;
+        _movement.MovementStateChanged -= UpdateMoveButton;
+        _movement.StopRenderLoop();
+        base.OnClosed(e);
     }
 }

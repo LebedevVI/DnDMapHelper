@@ -34,7 +34,12 @@
                 </WrapPanel>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <Button x:Name="MoveButton" Content="⚔ Движение"
+                            Style="{StaticResource FantasyButton}" Click="MoveButton_Click"/>
                     <Button Content="Экран игры ▶" Style="{StaticResource FantasyButton}" Click="OpenPlayer_Click"/>
+                    <Button x:Name="TogglePlayerWindowButton" Content="Свернуть игроков"
+                            Style="{StaticResource FantasyButton}" Click="TogglePlayerWindow_Click"
+                            IsEnabled="False" Visibility="Collapsed"/>
                 </StackPanel>
             </Grid>
         </Border>

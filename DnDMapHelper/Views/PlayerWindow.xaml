@@ -13,15 +13,22 @@
                             ShowRegions="False"
                             MouseLeftButtonDown="MapView_MouseLeftButtonDown"/>
 
-        <Border VerticalAlignment="Bottom" HorizontalAlignment="Center"
-                Margin="0,0,0,32" Background="Transparent">
+        <Border VerticalAlignment="Top" HorizontalAlignment="Right"
+                Margin="12" Background="#AA2A1A08" CornerRadius="4" Padding="4">
             <StackPanel Orientation="Horizontal">
-                <Button x:Name="MoveButton"
-                        Content="⚔ Движение"
+                <Button x:Name="CompactModeButton"
+                        Content="⊟ Окно"
                         Style="{StaticResource FantasyButton}"
-                        FontSize="18"
-                        Padding="28,12"
-                        Click="MoveButton_Click"/>
+                        FontSize="12" Padding="10,6"
+                        Click="CompactModeButton_Click"
+                        ToolTip="Свернуть в окно для отладки на одном мониторе"/>
+                <Button x:Name="FullscreenModeButton"
+                        Content="⛶ На весь экран"
+                        Style="{StaticResource FantasyButton}"
+                        FontSize="12" Padding="10,6"
+                        Visibility="Collapsed"
+                        Click="FullscreenModeButton_Click"
+                        ToolTip="Развернуть на весь экран"/>
             </StackPanel>
         </Border>
 
