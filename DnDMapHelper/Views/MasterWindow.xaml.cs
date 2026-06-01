@@ -248,9 +248,72 @@ public partial class MasterWindow : Window
             return;
 
         target.Label = dialog.Label;
+        foreach (var route in _session.Routes.Where(r => r.TargetId == target.Id))
+            route.TargetLabel = target.Label;
         _session.SelectTarget(target.Id);
+        _session.NotifyRoutesChanged();
         MapView.Refresh();
+        SyncRouteList();
         UpdateStatus($"Подпись цели: «{target.Label}»");
+    }
+
+    private void MapView_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (_session.MapImage is null)
+            return;
+
+        var hitTarget = MapView.HitTestTarget(e.GetPosition(MapView));
+        if (hitTarget is null)
+            return;
+
+        _session.SelectTarget(hitTarget.Id);
+        MapView.Refresh();
+        TryDeleteTarget(hitTarget);
+        e.Handled = true;
+    }
+
+    private void DeleteTarget_Click(object sender, RoutedEventArgs e)
+    {
+        var target = _session.SelectedTarget;
+        if (target is null)
+        {
+            UpdateStatus("Выберите цель на карте (режим «Обзор») или кликните по ней правой кнопкой.");
+            return;
+        }
+
+        TryDeleteTarget(target);
+    }
+
+    private void Window_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Delete)
+            return;
+
+        var target = _session.SelectedTarget;
+        if (target is null)
+            return;
+
+        TryDeleteTarget(target);
+        e.Handled = true;
+    }
+
+    private void TryDeleteTarget(TargetMarker target)
+    {
+        var routesCount = _session.Routes.Count(r => r.TargetId == target.Id);
+        var message = routesCount > 0
+            ? $"Удалить цель «{target.Label}»?\n\nТакже будут удалены связанные маршруты ({routesCount})."
+            : $"Удалить цель «{target.Label}»?";
+
+        if (MessageBox.Show(this, message, "Удаление цели",
+                MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+
+        if (!_session.RemoveTarget(target.Id))
+            return;
+
+        SyncRouteList();
+        MapView.Refresh();
+        UpdateStatus($"Цель «{target.Label}» удалена.");
     }
 
     private void MapView_MouseMove(object sender, MouseEventArgs e)
@@ -468,7 +531,7 @@ public partial class MasterWindow : Window
 
         StatusText.Text = _currentTool switch
         {
-            MasterTool.Navigate => "Обзор: клик по цели — выбрать для маршрута; двойной клик — изменить подпись.",
+            MasterTool.Navigate => "Обзор: клик — выбрать цель; двойной клик — подпись; ПКМ или Delete — удалить.",
             MasterTool.PartyMarker => "Кликните на карте, чтобы поставить метку партии (синий щит).",
             MasterTool.TargetMarker => "Кликните на карте — метка цели и окно для подписи (например, «Логово врага»).",
             MasterTool.DrawPath => "Рисуйте маршрут к выбранной цели. Каждый новый начинается с конца предыдущего. Очередь — справа.",

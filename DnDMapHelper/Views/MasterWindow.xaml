@@ -5,7 +5,8 @@
         Title="Экран мастера — Карта приключений"
         Width="1280" Height="800"
         WindowStartupLocation="CenterScreen"
-        Style="{StaticResource FantasyWindow}">
+        Style="{StaticResource FantasyWindow}"
+        KeyDown="Window_KeyDown">
     <DockPanel>
         <Border DockPanel.Dock="Top" Style="{StaticResource FantasyPanel}" Margin="8,8,8,4" Padding="10">
             <Grid>
@@ -18,6 +19,7 @@
                 <StackPanel Grid.Column="0" Orientation="Horizontal">
                     <Button Content="Загрузить карту" Style="{StaticResource FantasyButton}" Click="LoadMap_Click"/>
                     <Button Content="Очистить маршруты" Style="{StaticResource FantasyButton}" Click="ClearRoutes_Click"/>
+                    <Button Content="Удалить цель" Style="{StaticResource FantasyButton}" Click="DeleteTarget_Click"/>
                 </StackPanel>
 
                 <WrapPanel Grid.Column="1" HorizontalAlignment="Center">
@@ -81,6 +83,7 @@
             <controls:MapCanvas x:Name="MapView"
                                 HighlightRegions="True"
                                 MouseLeftButtonDown="MapView_MouseLeftButtonDown"
+                                MouseRightButtonDown="MapView_MouseRightButtonDown"
                                 MouseDoubleClick="MapView_MouseDoubleClick"
                                 MouseMove="MapView_MouseMove"
                                 MouseLeftButtonUp="MapView_MouseLeftButtonUp"/>

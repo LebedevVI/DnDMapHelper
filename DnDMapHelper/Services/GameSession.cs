@@ -132,6 +132,35 @@ public sealed class GameSession : INotifyPropertyChanged
 
     public void SelectTarget(Guid id) => SelectedTargetId = id;
 
+    public bool RemoveTarget(Guid targetId)
+    {
+        var target = Targets.FirstOrDefault(t => t.Id == targetId);
+        if (target is null)
+            return false;
+
+        Targets.Remove(target);
+
+        for (var i = Routes.Count - 1; i >= 0; i--)
+        {
+            if (Routes[i].TargetId == targetId)
+                Routes.RemoveAt(i);
+        }
+
+        RenumberRoutes();
+
+        if (SelectedTargetId == targetId)
+            SelectedTargetId = Targets.Count > 0 ? Targets[0].Id : null;
+
+        if (Routes.Count == 0)
+            SelectedRouteIndex = -1;
+        else if (SelectedRouteIndex >= Routes.Count)
+            SelectedRouteIndex = Routes.Count - 1;
+
+        NotifyTargetsChanged();
+        NotifyRoutesChanged();
+        return true;
+    }
+
     public Point GetNextRouteStartPoint()
     {
         if (Routes.Count > 0)
