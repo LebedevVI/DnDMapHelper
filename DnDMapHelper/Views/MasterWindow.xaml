@@ -18,7 +18,6 @@
 
                 <StackPanel Grid.Column="0" Orientation="Horizontal">
                     <Button Content="Загрузить карту" Style="{StaticResource FantasyButton}" Click="LoadMap_Click"/>
-                    <Button Content="Очистить маршруты" Style="{StaticResource FantasyButton}" Click="ClearRoutes_Click"/>
                     <Button Content="Удалить цель" Style="{StaticResource FantasyButton}" Click="DeleteTarget_Click"/>
                 </StackPanel>
 
@@ -73,6 +72,8 @@
                 <StackPanel Grid.Row="2" Margin="0,8,0,0">
                     <TextBlock x:Name="RouteQueueHint" FontSize="11" FontStyle="Italic"
                                TextWrapping="Wrap" Opacity="0.8" Margin="0,0,0,6"/>
+                    <Button Content="Очистить маршруты" Style="{StaticResource FantasyButton}"
+                            FontSize="11" Padding="8,4" Margin="0,0,0,4" Click="ClearRoutes_Click"/>
                     <Button Content="Удалить выбранный" Style="{StaticResource FantasyButton}"
                             FontSize="11" Padding="8,4" Click="RemoveSelectedRoute_Click"/>
                 </StackPanel>
