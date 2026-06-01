@@ -296,7 +296,7 @@ public partial class MapCanvas : UserControl
         foreach (var target in _session.Targets)
         {
             var center = _viewport.ImageToCanvas(target.Position);
-            var isSelected = _session.SelectedTargetId == target.Id;
+            var isSelected = !IsPlayerMode && _session.SelectedTargetId == target.Id;
             var size = isSelected ? 28 : 22;
 
             var cross = HandDrawnMarkerHelper.CreateTargetCross(center, size, isSelected, target.Id);

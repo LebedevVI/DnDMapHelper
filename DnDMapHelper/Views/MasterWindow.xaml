@@ -6,7 +6,7 @@
         Width="1280" Height="800"
         WindowStartupLocation="CenterScreen"
         Style="{StaticResource FantasyWindow}"
-        KeyDown="Window_KeyDown">
+        PreviewKeyDown="Window_PreviewKeyDown">
     <DockPanel>
         <Border DockPanel.Dock="Top" Style="{StaticResource FantasyPanel}" Margin="8,8,8,4" Padding="10">
             <Grid>
@@ -18,7 +18,6 @@
 
                 <StackPanel Grid.Column="0" Orientation="Horizontal">
                     <Button Content="Загрузить карту" Style="{StaticResource FantasyButton}" Click="LoadMap_Click"/>
-                    <Button Content="Удалить цель" Style="{StaticResource FantasyButton}" Click="DeleteTarget_Click"/>
                 </StackPanel>
 
                 <WrapPanel Grid.Column="1" HorizontalAlignment="Center">

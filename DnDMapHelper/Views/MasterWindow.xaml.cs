@@ -222,7 +222,7 @@ public partial class MasterWindow : Window
                 {
                     _session.SelectTarget(hitTarget.Id);
                     MapView.Refresh();
-                    UpdateStatus($"Выбрана цель: {hitTarget.Label}");
+                    UpdateStatus($"Выбрана цель: {hitTarget.Label} (Delete — удалить).");
                 }
                 break;
         }
@@ -268,23 +268,11 @@ public partial class MasterWindow : Window
 
         _session.SelectTarget(hitTarget.Id);
         MapView.Refresh();
-        TryDeleteTarget(hitTarget);
+        UpdateStatus($"Выбрана цель: {hitTarget.Label} (Delete — удалить).");
         e.Handled = true;
     }
 
-    private void DeleteTarget_Click(object sender, RoutedEventArgs e)
-    {
-        var target = _session.SelectedTarget;
-        if (target is null)
-        {
-            UpdateStatus("Выберите цель на карте (режим «Обзор») или кликните по ней правой кнопкой.");
-            return;
-        }
-
-        TryDeleteTarget(target);
-    }
-
-    private void Window_KeyDown(object sender, KeyEventArgs e)
+    private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key != Key.Delete)
             return;
@@ -569,7 +557,7 @@ public partial class MasterWindow : Window
 
         StatusText.Text = _currentTool switch
         {
-            MasterTool.Navigate => "Обзор: клик — выбрать цель; двойной клик — подпись; ПКМ или Delete — удалить.",
+            MasterTool.Navigate => "Обзор: клик — выбрать цель; двойной клик — подпись. Delete — удалить выбранную цель.",
             MasterTool.PartyMarker => "Кликните на карте, чтобы поставить метку партии (синий щит).",
             MasterTool.TargetMarker => "Кликните на карте — метка цели и окно для подписи (например, «Логово врага»).",
             MasterTool.DrawPath => "Рисуйте маршрут к выбранной цели. Каждый новый начинается с конца предыдущего. Очередь — справа.",
