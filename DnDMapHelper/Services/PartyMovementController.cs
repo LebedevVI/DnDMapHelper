@@ -11,11 +11,7 @@ public sealed class PartyMovementController
     private readonly GameSession _session = GameSession.Current;
     private EventHandler? _renderHandler;
     private DateTime _moveStartTime;
-    private double _moveDurationSeconds = 3;
-
-    private const double MinMoveDurationSeconds = 2.5;
-    private const double MaxMoveDurationSeconds = 7;
-    private const double PixelsPerSecond = 90;
+    private double _moveDurationSeconds = 12;
 
     public event Action? MovementFrame;
     public event Action? MovementStateChanged;
@@ -39,10 +35,7 @@ public sealed class PartyMovementController
             return;
 
         var pathLength = PathGeometryHelper.GetSmoothPathLength(_session.ActiveMovementPath);
-        _moveDurationSeconds = Math.Clamp(
-            pathLength / PixelsPerSecond,
-            MinMoveDurationSeconds,
-            MaxMoveDurationSeconds);
+        _moveDurationSeconds = PathGeometryHelper.CalculateMovementDurationSeconds(pathLength);
 
         _session.BeginPartyMovement();
         _moveStartTime = DateTime.UtcNow;

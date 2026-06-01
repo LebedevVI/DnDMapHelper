@@ -77,6 +77,23 @@ public static class PathGeometryHelper
         return geometry;
     }
 
+    /// <summary>
+    /// Длительность движения по маршруту (сек): короткий путь ~6 с, длинный до ~12 с.
+    /// Зависимость сублинейная — самый длинный путь примерно в 2 раза дольше самого короткого.
+    /// </summary>
+    public static double CalculateMovementDurationSeconds(double pathLengthPixels)
+    {
+        const double minSeconds = 6;
+        const double maxSeconds = 12;
+        const double characteristicLength = 1100;
+
+        if (pathLengthPixels <= 0)
+            return minSeconds;
+
+        var eased = 1 - Math.Exp(-pathLengthPixels / characteristicLength);
+        return minSeconds + (maxSeconds - minSeconds) * eased;
+    }
+
     /// <summary>Прогресс 0..1 с плавным разгоном и торможением.</summary>
     public static double EaseInOutCubic(double t)
     {
