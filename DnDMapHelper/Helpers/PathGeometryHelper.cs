@@ -5,7 +5,7 @@ namespace DnDMapHelper.Helpers;
 
 public static class PathGeometryHelper
 {
-    public static double GetTotalLength(IReadOnlyList<Point> points)
+    public static double GetTotalLength(IList<Point> points)
     {
         if (points.Count < 2)
             return 0;
@@ -16,7 +16,7 @@ public static class PathGeometryHelper
         return length;
     }
 
-    public static Point GetPointAtDistance(IReadOnlyList<Point> points, double distance)
+    public static Point GetPointAtDistance(IList<Point> points, double distance)
     {
         if (points.Count == 0)
             return default;
@@ -75,6 +75,57 @@ public static class PathGeometryHelper
 
         geometry.Figures.Add(figure);
         return geometry;
+    }
+
+    /// <summary>Прогресс 0..1 с плавным разгоном и торможением.</summary>
+    public static double EaseInOutCubic(double t)
+    {
+        t = Math.Clamp(t, 0, 1);
+        return t < 0.5
+            ? 4 * t * t * t
+            : 1 - Math.Pow(-2 * t + 2, 3) / 2;
+    }
+
+    public static IList<Point> FlattenSmoothPath(IReadOnlyList<Point> points, double tolerance = 0.75)
+    {
+        if (points.Count < 2)
+            return points.Count == 1 ? [points[0]] : [];
+
+        var geometry = CreateSmoothPath(points);
+        var flattened = geometry.GetFlattenedPathGeometry(tolerance, ToleranceType.Absolute);
+        var result = new List<Point>();
+        foreach (var figure in flattened.Figures)
+        {
+            result.Add(figure.StartPoint);
+            foreach (var segment in figure.Segments)
+            {
+                if (segment is LineSegment line)
+                    result.Add(line.Point);
+                else if (segment is PolyLineSegment poly)
+                    result.AddRange(poly.Points);
+            }
+        }
+
+        return result.Count >= 2 ? result : points.ToList();
+    }
+
+    public static double GetSmoothPathLength(IReadOnlyList<Point> points)
+    {
+        var flat = FlattenSmoothPath(points);
+        return GetTotalLength(flat);
+    }
+
+    public static Point GetPointOnSmoothPath(IReadOnlyList<Point> points, double easedProgress)
+    {
+        var flat = FlattenSmoothPath(points);
+        if (flat.Count == 0)
+            return default;
+        if (flat.Count == 1)
+            return flat[0];
+
+        var total = GetTotalLength(flat);
+        var distance = total * Math.Clamp(easedProgress, 0, 1);
+        return GetPointAtDistance(flat, distance);
     }
 
     private static double Distance(Point a, Point b) =>

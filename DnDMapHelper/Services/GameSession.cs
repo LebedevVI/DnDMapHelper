@@ -122,9 +122,8 @@ public sealed class GameSession : INotifyPropertyChanged
             return;
 
         _partyPathProgress = Math.Clamp(progress, 0, 1);
-        var total = Helpers.PathGeometryHelper.GetTotalLength(MovementPath);
-        var distance = total * _partyPathProgress;
-        PartyDisplayPosition = Helpers.PathGeometryHelper.GetPointAtDistance(MovementPath, distance);
+        PartyDisplayPosition = Helpers.PathGeometryHelper.GetPointOnSmoothPath(
+            MovementPath, _partyPathProgress);
 
         if (_partyPathProgress >= 1)
         {

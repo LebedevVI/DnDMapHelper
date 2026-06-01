@@ -25,6 +25,7 @@ public partial class MapCanvas : UserControl
 
     private readonly GameSession _session = GameSession.Current;
     private MapViewport _viewport;
+    private bool _isRedrawing;
 
     public MapCanvas()
     {
@@ -94,15 +95,13 @@ public partial class MapCanvas : UserControl
         }
     }
 
-    private void RootGrid_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateViewport();
+    private void RootGrid_SizeChanged(object sender, SizeChangedEventArgs e) => RedrawOverlay();
 
-    private void UpdateViewport()
+    private void RecalculateViewport()
     {
-        if (_session.MapImage is null)
+        if (_session.MapImage is null || RootGrid.ActualWidth <= 0 || RootGrid.ActualHeight <= 0)
         {
             _viewport = new MapViewport(0, 0, 1, 0, 0);
-            OverlayCanvas.Width = RootGrid.ActualWidth;
-            OverlayCanvas.Height = RootGrid.ActualHeight;
             return;
         }
 
@@ -110,29 +109,35 @@ public partial class MapCanvas : UserControl
             new Size(RootGrid.ActualWidth, RootGrid.ActualHeight),
             _session.MapImage.PixelWidth,
             _session.MapImage.PixelHeight);
-
-        OverlayCanvas.Width = RootGrid.ActualWidth;
-        OverlayCanvas.Height = RootGrid.ActualHeight;
-        RedrawOverlay();
     }
 
     private void RedrawOverlay()
     {
-        OverlayCanvas.Children.Clear();
-        if (_session.MapImage is null)
+        if (_isRedrawing)
             return;
 
-        UpdateViewport();
-
-        if (ShowRegions)
+        _isRedrawing = true;
+        try
         {
-            foreach (var region in _session.Regions)
-                DrawRegion(region);
-        }
+            RecalculateViewport();
+            OverlayCanvas.Children.Clear();
+            if (_session.MapImage is null)
+                return;
 
-        DrawPath();
-        DrawTargets();
-        DrawParty();
+            if (ShowRegions)
+            {
+                foreach (var region in _session.Regions)
+                    DrawRegion(region);
+            }
+
+            DrawPath();
+            DrawTargets();
+            DrawParty();
+        }
+        finally
+        {
+            _isRedrawing = false;
+        }
     }
 
     private void DrawRegion(MapRegion region)

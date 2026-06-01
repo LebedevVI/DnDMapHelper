@@ -9,6 +9,8 @@
                HorizontalAlignment="Center"
                VerticalAlignment="Center"/>
         <Canvas x:Name="OverlayCanvas"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
                 Background="Transparent"
                 IsHitTestVisible="True"/>
     </Grid>

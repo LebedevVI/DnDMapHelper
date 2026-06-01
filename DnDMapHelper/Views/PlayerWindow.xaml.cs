@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Input;
-using System.Windows.Threading;
+using System.Windows.Media;
+using DnDMapHelper.Helpers;
 using DnDMapHelper.Models;
 using DnDMapHelper.Services;
 
@@ -9,15 +10,17 @@ namespace DnDMapHelper.Views;
 public partial class PlayerWindow : Window
 {
     private readonly GameSession _session = GameSession.Current;
-    private readonly DispatcherTimer _moveTimer;
-    private const double MoveDurationSeconds = 2.5;
+    private EventHandler? _renderHandler;
     private DateTime _moveStartTime;
+    private double _moveDurationSeconds = 3;
+
+    private const double MinMoveDurationSeconds = 2.5;
+    private const double MaxMoveDurationSeconds = 7;
+    private const double PixelsPerSecond = 90;
 
     public PlayerWindow()
     {
         InitializeComponent();
-        _moveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
-        _moveTimer.Tick += MoveTimer_Tick;
 
         _session.PropertyChanged += (_, e) =>
         {
@@ -42,25 +45,50 @@ public partial class PlayerWindow : Window
         if (!_session.CanStartMovement())
             return;
 
+        var pathLength = PathGeometryHelper.GetSmoothPathLength(_session.MovementPath);
+        _moveDurationSeconds = Math.Clamp(
+            pathLength / PixelsPerSecond,
+            MinMoveDurationSeconds,
+            MaxMoveDurationSeconds);
+
         _session.BeginPartyMovement();
         _moveStartTime = DateTime.UtcNow;
         MoveButton.IsEnabled = false;
-        _moveTimer.Start();
+        StartRenderLoop();
     }
 
-    private void MoveTimer_Tick(object? sender, EventArgs e)
+    private void StartRenderLoop()
     {
-        var elapsed = (DateTime.UtcNow - _moveStartTime).TotalSeconds;
-        var progress = elapsed / MoveDurationSeconds;
-        _session.UpdatePartyMovement(progress);
-        MapView.Refresh();
+        StopRenderLoop();
+        _renderHandler = OnRendering;
+        CompositionTarget.Rendering += _renderHandler;
+    }
 
+    private void StopRenderLoop()
+    {
+        if (_renderHandler is null)
+            return;
+
+        CompositionTarget.Rendering -= _renderHandler;
+        _renderHandler = null;
+    }
+
+    private void OnRendering(object? sender, EventArgs e)
+    {
         if (!_session.IsPartyMoving)
         {
-            _moveTimer.Stop();
+            StopRenderLoop();
             MapView.Refresh();
             UpdateMoveButton();
+            return;
         }
+
+        var elapsed = (DateTime.UtcNow - _moveStartTime).TotalSeconds;
+        var linearProgress = Math.Min(1.0, elapsed / _moveDurationSeconds);
+        var easedProgress = PathGeometryHelper.EaseInOutCubic(linearProgress);
+
+        _session.UpdatePartyMovement(easedProgress);
+        MapView.Refresh();
     }
 
     private void MapView_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -93,7 +121,7 @@ public partial class PlayerWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
-        _moveTimer.Stop();
+        StopRenderLoop();
         _session.ResetPartyMovement();
         base.OnClosed(e);
     }
