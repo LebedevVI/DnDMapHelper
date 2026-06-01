@@ -25,8 +25,16 @@ public partial class MasterWindow : Window
     {
         InitializeComponent();
         ToolNavigate.IsChecked = true;
+        RouteList.ItemsSource = _session.Routes;
+        _session.Routes.CollectionChanged += (_, _) => Dispatcher.BeginInvoke(SyncRouteList);
         UpdateStatus();
-        _session.PropertyChanged += (_, _) => UpdateStatus();
+        UpdateRouteQueueHint();
+        _session.PropertyChanged += (_, e) =>
+        {
+            UpdateStatus();
+            if (e.PropertyName is nameof(GameSession.Routes) or nameof(GameSession.SelectedRouteIndex))
+                UpdateRouteQueueHint();
+        };
     }
 
     private void LoadMap_Click(object sender, RoutedEventArgs e)
@@ -51,17 +59,77 @@ public partial class MasterWindow : Window
         _session.Targets.Clear();
         _session.Regions.Clear();
         _session.PartyPosition = null;
-        _session.ClearPath();
+        _session.ClearAllRoutes();
         _session.SelectedTargetId = null;
+        SyncRouteList();
         MapView.Refresh();
         UpdateStatus("Карта загружена. Разместите метку партии и цели.");
     }
 
-    private void ClearPath_Click(object sender, RoutedEventArgs e)
+    private void ClearRoutes_Click(object sender, RoutedEventArgs e)
     {
-        _session.ClearPath();
+        _session.ClearAllRoutes();
         _pathPointsImage.Clear();
+        SyncRouteList();
         MapView.Refresh();
+        UpdateStatus("Очередь маршрутов очищена.");
+    }
+
+    private void RemoveSelectedRoute_Click(object sender, RoutedEventArgs e)
+    {
+        if (RouteList.SelectedIndex < 0)
+            return;
+
+        _session.RemoveRouteAt(RouteList.SelectedIndex);
+        SyncRouteList();
+        MapView.Refresh();
+        UpdateRouteQueueHint();
+    }
+
+    private void RouteList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (RouteList.SelectedIndex >= 0)
+            _session.SelectedRouteIndex = RouteList.SelectedIndex;
+
+        MapView.Refresh();
+        UpdateRouteQueueHint();
+    }
+
+    private void SyncRouteList()
+    {
+        RouteList.ItemsSource = null;
+        RouteList.ItemsSource = _session.Routes;
+
+        if (_session.Routes.Count == 0)
+        {
+            RouteList.SelectedIndex = -1;
+        }
+        else if (RouteList.SelectedIndex < 0 || RouteList.SelectedIndex >= _session.Routes.Count)
+        {
+            RouteList.SelectedIndex = _session.SelectedRouteIndex >= 0
+                ? _session.SelectedRouteIndex
+                : 0;
+        }
+
+        UpdateRouteQueueHint();
+    }
+
+    private void UpdateRouteQueueHint()
+    {
+        if (_session.Routes.Count == 0)
+        {
+            RouteQueueHint.Text = "Маршруты появятся после рисования.";
+            return;
+        }
+
+        var active = _session.ActiveRoute;
+        var selected = RouteList.SelectedIndex;
+        if (selected == 0 && active is not null)
+            RouteQueueHint.Text = $"Следующий для игроков: {active.DisplayName}";
+        else if (selected >= 0 && selected < _session.Routes.Count)
+            RouteQueueHint.Text = $"Просмотр #{_session.Routes[selected].Order} (в очереди)";
+        else
+            RouteQueueHint.Text = $"В очереди: {_session.Routes.Count}";
     }
 
     private void OpenPlayer_Click(object sender, RoutedEventArgs e)
@@ -122,7 +190,9 @@ public partial class MasterWindow : Window
         {
             case MasterTool.PartyMarker:
                 _session.PartyPosition = imagePoint;
-                _session.ResetPartyMovement();
+                _session.ClearAllRoutes();
+                _pathPointsImage.Clear();
+                SyncRouteList();
                 MapView.Refresh();
                 break;
 
@@ -195,7 +265,7 @@ public partial class MasterWindow : Window
                 Distance(_pathPointsImage[^1], imagePoint) > 4)
             {
                 _pathPointsImage.Add(imagePoint);
-                _session.MovementPath = BuildPathWithEndpoints(_pathPointsImage);
+                _session.DraftPath = BuildPathWithEndpoints(_pathPointsImage);
                 MapView.Refresh();
             }
         }
@@ -238,23 +308,43 @@ public partial class MasterWindow : Window
 
         _isDrawingPath = true;
         _pathPointsImage.Clear();
-        _pathPointsImage.Add(_session.PartyPosition!.Value);
+        _pathPointsImage.Add(_session.GetNextRouteStartPoint());
         _pathPointsImage.Add(imagePoint);
-        _session.MovementPath = BuildPathWithEndpoints(_pathPointsImage);
+        _session.DraftPath = BuildPathWithEndpoints(_pathPointsImage);
         MapView.Refresh();
     }
 
     private void FinishPathDrawing()
     {
         _isDrawingPath = false;
-        if (_session.HasSelectedTarget && _pathPointsImage.Count > 0)
+        if (!_session.HasSelectedTarget || _pathPointsImage.Count < 2)
         {
-            _pathPointsImage[^1] = _session.SelectedTarget!.Position;
-            _session.MovementPath = BuildPathWithEndpoints(_pathPointsImage);
+            _session.DraftPath = [];
+            _pathPointsImage.Clear();
+            MapView.Refresh();
+            return;
         }
 
+        _pathPointsImage[^1] = _session.SelectedTarget!.Position;
+        var points = BuildPathWithEndpoints(_pathPointsImage);
+        if (points.Count < 2)
+        {
+            MapView.Refresh();
+            return;
+        }
+
+        var target = _session.SelectedTarget!;
+        _session.AddRoute(new MovementRoute
+        {
+            TargetId = target.Id,
+            TargetLabel = target.Label,
+            Points = points
+        });
+
+        _pathPointsImage.Clear();
+        SyncRouteList();
         MapView.Refresh();
-        UpdateStatus("Маршрут сохранён. На экране игры нажмите «Движение».");
+        UpdateStatus($"Маршрут #{_session.Routes.Count} добавлен в очередь → «{target.Label}».");
     }
 
     private List<Point> BuildPathWithEndpoints(List<Point> stroke)
@@ -263,8 +353,7 @@ public partial class MasterWindow : Window
             return [];
 
         var result = new List<Point>(stroke);
-        if (_session.PartyPosition is { } party)
-            result[0] = party;
+        result[0] = _session.GetNextRouteStartPoint();
         if (_session.SelectedTarget is { } target)
             result[^1] = target.Position;
         return result;
@@ -382,7 +471,7 @@ public partial class MasterWindow : Window
             MasterTool.Navigate => "Обзор: клик по цели — выбрать для маршрута; двойной клик — изменить подпись.",
             MasterTool.PartyMarker => "Кликните на карте, чтобы поставить метку партии (синий щит).",
             MasterTool.TargetMarker => "Кликните на карте — метка цели и окно для подписи (например, «Логово врага»).",
-            MasterTool.DrawPath => "Зажмите ЛКМ и ведите кривую от партии к выбранной цели.",
+            MasterTool.DrawPath => "Рисуйте маршрут к выбранной цели. Каждый новый начинается с конца предыдущего. Очередь — справа.",
             MasterTool.DrawRegion => "Выделите прямоугольник — откроется окно для текста справки.",
             _ => string.Empty
         };

@@ -26,7 +26,11 @@ public partial class PlayerWindow : Window
         {
             if (e.PropertyName is nameof(GameSession.MapImage) or nameof(GameSession.HasMap))
                 UpdateNoMapHint();
-            if (e.PropertyName is nameof(GameSession.IsPartyMoving) or nameof(GameSession.CanStartMovement))
+            if (e.PropertyName is nameof(GameSession.IsPartyMoving)
+                or nameof(GameSession.CanStartMovement)
+                or nameof(GameSession.Routes)
+                or nameof(GameSession.HasRoutes)
+                or nameof(GameSession.ActiveRoute))
                 UpdateMoveButton();
         };
 
@@ -37,15 +41,24 @@ public partial class PlayerWindow : Window
     private void UpdateNoMapHint() =>
         NoMapHint.Visibility = _session.HasMap ? Visibility.Collapsed : Visibility.Visible;
 
-    private void UpdateMoveButton() =>
+    private void UpdateMoveButton()
+    {
         MoveButton.IsEnabled = _session.CanStartMovement();
+        var count = _session.Routes.Count;
+        MoveButton.Content = count switch
+        {
+            0 => "⚔ Движение",
+            1 => "⚔ Движение",
+            _ => $"⚔ Движение (1 из {count})"
+        };
+    }
 
     private void MoveButton_Click(object sender, RoutedEventArgs e)
     {
         if (!_session.CanStartMovement())
             return;
 
-        var pathLength = PathGeometryHelper.GetSmoothPathLength(_session.MovementPath);
+        var pathLength = PathGeometryHelper.GetSmoothPathLength(_session.ActiveMovementPath);
         _moveDurationSeconds = Math.Clamp(
             pathLength / PixelsPerSecond,
             MinMoveDurationSeconds,

@@ -71,11 +71,19 @@ public partial class MapCanvas : UserControl
     private void SubscribeSession()
     {
         _session.PropertyChanged += OnSessionChanged;
+        _session.Routes.CollectionChanged += OnRoutesCollectionChanged;
         MapImage.Source = _session.MapImage;
         RedrawOverlay();
     }
 
-    private void UnsubscribeSession() => _session.PropertyChanged -= OnSessionChanged;
+    private void UnsubscribeSession()
+    {
+        _session.PropertyChanged -= OnSessionChanged;
+        _session.Routes.CollectionChanged -= OnRoutesCollectionChanged;
+    }
+
+    private void OnRoutesCollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e) =>
+        Dispatcher.BeginInvoke(RedrawOverlay);
 
     private void OnSessionChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
@@ -87,7 +95,9 @@ public partial class MapCanvas : UserControl
             or nameof(GameSession.PartyDisplayPosition)
             or nameof(GameSession.Targets)
             or nameof(GameSession.Regions)
-            or nameof(GameSession.MovementPath)
+            or nameof(GameSession.DraftPath)
+            or nameof(GameSession.Routes)
+            or nameof(GameSession.SelectedRouteIndex)
             or nameof(GameSession.SelectedTargetId)
             or null)
         {
@@ -130,7 +140,7 @@ public partial class MapCanvas : UserControl
                     DrawRegion(region);
             }
 
-            DrawPath();
+            DrawRoutes();
             DrawTargets();
             DrawParty();
         }
@@ -178,24 +188,103 @@ public partial class MapCanvas : UserControl
         }
     }
 
-    private void DrawPath()
+    private void DrawRoutes()
     {
-        if (_session.MovementPath.Count < 2)
+        if (IsPlayerMode)
+        {
+            var active = _session.ActiveRoute;
+            if (active is not null && active.Points.Count >= 2)
+                DrawRoutePath(active.Points, isHighlighted: true, isActive: true, active.Order);
             return;
+        }
 
-        var canvasPoints = _session.MovementPath.Select(_viewport.ImageToCanvas).ToList();
+        for (var i = 0; i < _session.Routes.Count; i++)
+        {
+            var route = _session.Routes[i];
+            if (route.Points.Count < 2)
+                continue;
+
+            var isActive = i == 0;
+            var isSelected = i == _session.SelectedRouteIndex;
+            DrawRoutePath(route.Points, isHighlighted: isSelected, isActive: isActive, route.Order);
+        }
+
+        if (_session.DraftPath.Count >= 2)
+            DrawRoutePath(_session.DraftPath, isHighlighted: true, isActive: false, order: null, isDraft: true);
+    }
+
+    private void DrawRoutePath(
+        IReadOnlyList<Point> imagePoints,
+        bool isHighlighted,
+        bool isActive,
+        int? order,
+        bool isDraft = false)
+    {
+        var canvasPoints = imagePoints.Select(_viewport.ImageToCanvas).ToList();
         var geometry = PathGeometryHelper.CreateSmoothPath(canvasPoints);
+
+        Color strokeColor;
+        double thickness;
+        double opacity;
+
+        if (isDraft)
+        {
+            strokeColor = Color.FromRgb(160, 120, 40);
+            thickness = 2.5;
+            opacity = 0.7;
+        }
+        else if (isActive)
+        {
+            strokeColor = Color.FromRgb(190, 50, 10);
+            thickness = 3.5;
+            opacity = 0.95;
+        }
+        else if (isHighlighted)
+        {
+            strokeColor = Color.FromRgb(120, 80, 20);
+            thickness = 3;
+            opacity = 0.85;
+        }
+        else
+        {
+            strokeColor = Color.FromRgb(100, 70, 30);
+            thickness = 2;
+            opacity = 0.45;
+        }
 
         var path = new Path
         {
             Data = geometry,
-            Stroke = new SolidColorBrush(Color.FromRgb(139, 37, 0)),
-            StrokeThickness = 3,
-            StrokeDashArray = [6, 4],
+            Stroke = new SolidColorBrush(strokeColor),
+            StrokeThickness = thickness,
+            StrokeDashArray = isDraft ? [4, 4] : isActive ? null : [6, 4],
             Fill = Brushes.Transparent,
-            Opacity = 0.85
+            Opacity = opacity
         };
         OverlayCanvas.Children.Add(path);
+
+        if (order.HasValue && !isDraft)
+        {
+            var badgePoint = canvasPoints[0];
+            var badge = new Border
+            {
+                Background = new SolidColorBrush(isActive
+                    ? Color.FromArgb(230, 139, 37, 0)
+                    : Color.FromArgb(200, 80, 55, 20)),
+                CornerRadius = new CornerRadius(10),
+                Padding = new Thickness(6, 2, 6, 2),
+                Child = new TextBlock
+                {
+                    Text = order.Value.ToString(),
+                    FontWeight = FontWeights.Bold,
+                    FontSize = 11,
+                    Foreground = Brushes.White
+                }
+            };
+            Canvas.SetLeft(badge, badgePoint.X - 10);
+            Canvas.SetTop(badge, badgePoint.Y - 22);
+            OverlayCanvas.Children.Add(badge);
+        }
     }
 
     private void DrawTargets()
