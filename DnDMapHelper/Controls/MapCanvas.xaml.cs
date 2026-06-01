@@ -51,9 +51,6 @@ public partial class MapCanvas : UserControl
         set => SetValue(HighlightRegionsProperty, value);
     }
 
-    public event EventHandler<Point>? MapClicked;
-    public event EventHandler<MapRegion>? RegionClicked;
-
     public MapViewport Viewport => _viewport;
 
     public Canvas OverlayCanvasElement => OverlayCanvas;

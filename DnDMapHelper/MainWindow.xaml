@@ -1,7 +1,7 @@
 ﻿<Window x:Class="DnDMapHelper.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="DnD Map Helper — Хроники карты"
+        Title="DnDMapHelper — Карта странствий"
         Height="520" Width="640"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
@@ -15,7 +15,7 @@
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <TextBlock Grid.Row="0" Text="☙ Хроники карты ☙" Style="{StaticResource FantasyTitle}" FontSize="28" Margin="0,0,0,8"/>
+            <TextBlock Grid.Row="0" Text="☙ Карта странствий ☙" Style="{StaticResource FantasyTitle}" FontSize="28" Margin="0,0,0,8"/>
             <TextBlock Grid.Row="1" Text="Помощник мастера для отображения карт игрокам"
                        TextAlignment="Center" FontStyle="Italic" Opacity="0.8" Margin="0,0,0,24"/>
 

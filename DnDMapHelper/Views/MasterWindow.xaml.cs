@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
@@ -97,8 +98,9 @@ public partial class MasterWindow : Window
                 tool.IsChecked = false;
         }
 
-        if (!ToolNavigate.IsChecked && !ToolParty.IsChecked && !ToolTarget.IsChecked &&
-            !ToolPath.IsChecked && !ToolRegion.IsChecked)
+        if (ToolNavigate.IsChecked != true && ToolParty.IsChecked != true &&
+            ToolTarget.IsChecked != true && ToolPath.IsChecked != true &&
+            ToolRegion.IsChecked != true)
             active.IsChecked = true;
     }
 
