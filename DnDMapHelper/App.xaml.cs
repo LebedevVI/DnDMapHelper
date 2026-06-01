@@ -1,14 +1,13 @@
-﻿using System.Configuration;
-using System.Data;
-using System.Windows;
+﻿using System.Windows;
+using DnDMapHelper.Views;
 
-namespace DnDMapHelper
+namespace DnDMapHelper;
+
+public partial class App : Application
 {
-    /// <summary>
-    /// Interaction logic for App.xaml
-    /// </summary>
-    public partial class App : Application
+    private void OnStartup(object sender, StartupEventArgs e)
     {
+        var master = new MasterWindow();
+        master.Show();
     }
-
 }
