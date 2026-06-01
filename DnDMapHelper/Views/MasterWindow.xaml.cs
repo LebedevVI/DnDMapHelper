@@ -159,6 +159,12 @@ public partial class MasterWindow : Window
             RouteQueueHint.Text = $"В очереди: {_session.Routes.Count}";
     }
 
+    private void HelpButton_Click(object sender, RoutedEventArgs e)
+    {
+        var help = new HelpWindow { Owner = this };
+        help.ShowDialog();
+    }
+
     private void OpenPlayer_Click(object sender, RoutedEventArgs e)
     {
         if (_playerWindow is { IsLoaded: true })

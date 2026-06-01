@@ -45,8 +45,22 @@
         </Border>
 
         <Border DockPanel.Dock="Bottom" Style="{StaticResource FantasyPanel}" Margin="8,4,8,8" Padding="8">
-            <TextBlock x:Name="StatusText" FontSize="13" TextWrapping="Wrap"
-                       Foreground="{StaticResource InkBrush}"/>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="StatusText" Grid.Column="0" FontSize="13" TextWrapping="Wrap"
+                           VerticalAlignment="Center"
+                           Foreground="{StaticResource InkBrush}" Margin="0,0,8,0"/>
+                <Button Grid.Column="1" Content="?"
+                        Style="{StaticResource FantasyButton}"
+                        Width="40" Height="40"
+                        FontSize="20" FontWeight="Bold"
+                        Padding="0" VerticalAlignment="Center"
+                        ToolTip="Справка — как пользоваться программой"
+                        Click="HelpButton_Click"/>
+            </Grid>
         </Border>
 
         <Border DockPanel.Dock="Right" Style="{StaticResource FantasyPanel}" Margin="0,0,8,0"
