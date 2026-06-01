@@ -39,4 +39,15 @@ public static class MapCoordinateHelper
         var offsetY = (canvasSize.Height - displayHeight) / 2;
         return new MapViewport(offsetX, offsetY, scale, imageWidth, imageHeight);
     }
+
+    public static MapViewport WithZoomAndPan(MapViewport baseViewport, double zoomFactor, Vector panOffset)
+    {
+        var scale = baseViewport.Scale * zoomFactor;
+        return new MapViewport(
+            baseViewport.OffsetX + panOffset.X,
+            baseViewport.OffsetY + panOffset.Y,
+            scale,
+            baseViewport.ImageWidth,
+            baseViewport.ImageHeight);
+    }
 }

@@ -94,7 +94,7 @@ public partial class PlayerWindow : Window
         if (_session.IsPartyMoving)
             return;
 
-        var canvasPoint = e.GetPosition(MapView);
+        var canvasPoint = MapView.GetViewPoint(e);
         var region = MapView.HitTestRegion(canvasPoint);
         if (region is null)
             return;
@@ -111,6 +111,12 @@ public partial class PlayerWindow : Window
 
     private void Window_KeyDown(object sender, KeyEventArgs e)
     {
+        if (MapView.TryHandlePanKey(e.Key))
+        {
+            e.Handled = true;
+            return;
+        }
+
         if (e.Key == Key.Escape)
             Close();
         if (e.Key == Key.F11)

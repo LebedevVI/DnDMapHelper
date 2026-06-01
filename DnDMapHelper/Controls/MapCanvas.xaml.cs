@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
@@ -26,12 +27,26 @@ public partial class MapCanvas : UserControl
     private readonly GameSession _session = GameSession.Current;
     private MapViewport _viewport;
     private bool _isRedrawing;
+    private double _zoom = 1;
+    private bool _isPanning;
+    private Point _panStartMouse;
+    private double _panStartScrollX;
+    private double _panStartScrollY;
+    private bool _isApplyingScroll;
+
+    private const double MinZoom = 1;
+    private const double MaxZoom = 6;
+    private const double ZoomStep = 1.15;
+    private const double KeyboardPanStep = 48;
 
     public MapCanvas()
     {
         InitializeComponent();
         Loaded += (_, _) => SubscribeSession();
         Unloaded += (_, _) => UnsubscribeSession();
+        PreviewMouseDown += OnPreviewMouseDown;
+        PreviewMouseMove += OnPreviewMouseMove;
+        PreviewMouseUp += OnPreviewMouseUp;
     }
 
     public bool IsPlayerMode
@@ -56,11 +71,71 @@ public partial class MapCanvas : UserControl
 
     public Canvas OverlayCanvasElement => OverlayCanvas;
 
-    public Point CanvasToImage(Point canvasPoint) => _viewport.CanvasToImage(canvasPoint);
+    public Point CanvasToImage(Point viewPoint)
+    {
+        RecalculateViewport();
+        return _viewport.CanvasToImage(viewPoint);
+    }
 
-    public Point ImageToCanvas(Point imagePoint) => _viewport.ImageToCanvas(imagePoint);
+    public Point ImageToCanvas(Point imagePoint)
+    {
+        RecalculateViewport();
+        return _viewport.ImageToCanvas(imagePoint);
+    }
+
+    public Point GetViewPoint(MouseEventArgs e) => e.GetPosition(MapScrollViewer);
+
+    public Point GetViewPoint(MouseButtonEventArgs e) => e.GetPosition(MapScrollViewer);
+
+    public Point ViewToContent(Point viewPoint)
+    {
+        var (letterboxX, letterboxY) = GetLetterboxOffset();
+        return new Point(
+            viewPoint.X + MapScrollViewer.HorizontalOffset - letterboxX,
+            viewPoint.Y + MapScrollViewer.VerticalOffset - letterboxY);
+    }
+
+    public Rect ContentToImage(Rect contentRect)
+    {
+        var scale = ContentScale;
+        if (scale <= 0)
+            return Rect.Empty;
+
+        return new Rect(
+            contentRect.X / scale,
+            contentRect.Y / scale,
+            contentRect.Width / scale,
+            contentRect.Height / scale);
+    }
 
     public void Refresh() => RedrawOverlay();
+
+    public void ResetView() => _zoom = 1;
+
+    public void ZoomIn() => ZoomAt(GetZoomCenter(), ZoomStep);
+
+    public void ZoomOut() => ZoomAt(GetZoomCenter(), 1 / ZoomStep);
+
+    public void ResetZoom()
+    {
+        ResetView();
+        ApplyContentLayout();
+        CenterScrollAtCurrentZoom();
+        RedrawOverlay();
+    }
+
+    public double ZoomFactor => _zoom;
+
+    private double ContentScale
+    {
+        get
+        {
+            if (_session.MapImage is null)
+                return 1;
+
+            return GetBaseScale() * _zoom;
+        }
+    }
 
     private static void OnVisualPropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
@@ -88,7 +163,14 @@ public partial class MapCanvas : UserControl
     private void OnSessionChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(GameSession.MapImage) or null)
+        {
             MapImage.Source = _session.MapImage;
+            if (e.PropertyName is nameof(GameSession.MapImage))
+            {
+                ResetView();
+                Dispatcher.BeginInvoke(ResetZoom, System.Windows.Threading.DispatcherPriority.Loaded);
+            }
+        }
 
         if (e.PropertyName is nameof(GameSession.MapImage)
             or nameof(GameSession.PartyPosition)
@@ -106,18 +188,93 @@ public partial class MapCanvas : UserControl
         }
     }
 
-    private void RootGrid_SizeChanged(object sender, SizeChangedEventArgs e) => RedrawOverlay();
+    private void MapScrollViewer_SizeChanged(object sender, SizeChangedEventArgs e) => RedrawOverlay();
+
+    private void MapScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
+    {
+        if (_isApplyingScroll)
+            return;
+
+        RecalculateViewport();
+    }
+
+    private double GetBaseScale()
+    {
+        if (_session.MapImage is null)
+            return 1;
+
+        var viewportWidth = MapScrollViewer.ViewportWidth;
+        var viewportHeight = MapScrollViewer.ViewportHeight;
+        if (viewportWidth <= 0 || viewportHeight <= 0)
+            return 1;
+
+        return Math.Min(
+            viewportWidth / _session.MapImage.PixelWidth,
+            viewportHeight / _session.MapImage.PixelHeight);
+    }
+
+    private Size GetContentSize()
+    {
+        if (_session.MapImage is null)
+            return Size.Empty;
+
+        var scale = ContentScale;
+        return new Size(
+            _session.MapImage.PixelWidth * scale,
+            _session.MapImage.PixelHeight * scale);
+    }
+
+    private bool IsScrollable()
+    {
+        var content = GetContentSize();
+        return content.Width > MapScrollViewer.ViewportWidth + 0.5
+            || content.Height > MapScrollViewer.ViewportHeight + 0.5;
+    }
+
+    private (double X, double Y) GetLetterboxOffset()
+    {
+        var content = GetContentSize();
+        var viewportWidth = MapScrollViewer.ViewportWidth;
+        var viewportHeight = MapScrollViewer.ViewportHeight;
+        if (!IsScrollable())
+            return ((viewportWidth - content.Width) / 2, (viewportHeight - content.Height) / 2);
+
+        return (0, 0);
+    }
+
+    private void ApplyContentLayout()
+    {
+        if (_session.MapImage is null)
+        {
+            MapContentCanvas.Width = 0;
+            MapContentCanvas.Height = 0;
+            OverlayCanvas.Width = 0;
+            OverlayCanvas.Height = 0;
+            return;
+        }
+
+        var content = GetContentSize();
+        MapContentCanvas.Width = content.Width;
+        MapContentCanvas.Height = content.Height;
+        OverlayCanvas.Width = content.Width;
+        OverlayCanvas.Height = content.Height;
+        MapImage.Width = content.Width;
+        MapImage.Height = content.Height;
+    }
 
     private void RecalculateViewport()
     {
-        if (_session.MapImage is null || RootGrid.ActualWidth <= 0 || RootGrid.ActualHeight <= 0)
+        if (_session.MapImage is null || MapScrollViewer.ViewportWidth <= 0 || MapScrollViewer.ViewportHeight <= 0)
         {
             _viewport = new MapViewport(0, 0, 1, 0, 0);
             return;
         }
 
-        _viewport = MapCoordinateHelper.Calculate(
-            new Size(RootGrid.ActualWidth, RootGrid.ActualHeight),
+        var (letterboxX, letterboxY) = GetLetterboxOffset();
+        _viewport = new MapViewport(
+            letterboxX - MapScrollViewer.HorizontalOffset,
+            letterboxY - MapScrollViewer.VerticalOffset,
+            ContentScale,
             _session.MapImage.PixelWidth,
             _session.MapImage.PixelHeight);
     }
@@ -127,9 +284,16 @@ public partial class MapCanvas : UserControl
         if (_isRedrawing)
             return;
 
+        if (MapScrollViewer.ViewportWidth <= 0 || MapScrollViewer.ViewportHeight <= 0)
+        {
+            Dispatcher.BeginInvoke(RedrawOverlay, System.Windows.Threading.DispatcherPriority.Loaded);
+            return;
+        }
+
         _isRedrawing = true;
         try
         {
+            ApplyContentLayout();
             RecalculateViewport();
             OverlayCanvas.Children.Clear();
             if (_session.MapImage is null)
@@ -151,9 +315,15 @@ public partial class MapCanvas : UserControl
         }
     }
 
+    private Point ImageToContent(Point imagePoint)
+    {
+        var scale = ContentScale;
+        return new Point(imagePoint.X * scale, imagePoint.Y * scale);
+    }
+
     private void DrawRegion(MapRegion region)
     {
-        var rect = _viewport.ImageToCanvas(region.Bounds);
+        var rect = ContentRectFromImage(region.Bounds);
         var isSelected = !IsPlayerMode && _session.SelectedRegionId == region.Id;
         var fill = HighlightRegions
             ? new SolidColorBrush(Color.FromArgb((byte)(isSelected ? 90 : 60), 201, 168, 108))
@@ -192,6 +362,13 @@ public partial class MapCanvas : UserControl
         }
     }
 
+    private Rect ContentRectFromImage(Rect imageRect)
+    {
+        var topLeft = ImageToContent(imageRect.TopLeft);
+        var bottomRight = ImageToContent(imageRect.BottomRight);
+        return new Rect(topLeft, bottomRight);
+    }
+
     private void DrawRoutes()
     {
         if (IsPlayerMode)
@@ -224,7 +401,7 @@ public partial class MapCanvas : UserControl
         int? order,
         bool isDraft = false)
     {
-        var canvasPoints = imagePoints.Select(_viewport.ImageToCanvas).ToList();
+        var canvasPoints = imagePoints.Select(ImageToContent).ToList();
         var geometry = PathGeometryHelper.CreateSmoothPath(canvasPoints);
 
         Color strokeColor;
@@ -299,7 +476,7 @@ public partial class MapCanvas : UserControl
     {
         foreach (var target in _session.Targets)
         {
-            var center = _viewport.ImageToCanvas(target.Position);
+            var center = ImageToContent(target.Position);
             var isSelected = !IsPlayerMode && _session.SelectedTargetId == target.Id;
             var size = isSelected ? 28 : 22;
 
@@ -333,7 +510,7 @@ public partial class MapCanvas : UserControl
         if (!pos.HasValue)
             return;
 
-        var center = _viewport.ImageToCanvas(pos.Value);
+        var center = ImageToContent(pos.Value);
         const double radius = 14;
 
         var outer = new Ellipse
@@ -381,9 +558,9 @@ public partial class MapCanvas : UserControl
         OverlayCanvas.Children.Add(pin);
     }
 
-    public MapRegion? HitTestRegion(Point canvasPoint)
+    public MapRegion? HitTestRegion(Point viewPoint)
     {
-        var imagePoint = CanvasToImage(canvasPoint);
+        var imagePoint = CanvasToImage(viewPoint);
         for (var i = _session.Regions.Count - 1; i >= 0; i--)
         {
             if (_session.Regions[i].Bounds.Contains(imagePoint))
@@ -393,9 +570,9 @@ public partial class MapCanvas : UserControl
         return null;
     }
 
-    public TargetMarker? HitTestTarget(Point canvasPoint, double tolerance = 18)
+    public TargetMarker? HitTestTarget(Point viewPoint, double tolerance = 18)
     {
-        var imagePoint = CanvasToImage(canvasPoint);
+        var imagePoint = CanvasToImage(viewPoint);
         return _session.Targets
             .OrderBy(t => Distance(t.Position, imagePoint))
             .FirstOrDefault(t => Distance(t.Position, imagePoint) <= tolerance / Math.Max(_viewport.Scale, 0.01));
@@ -406,5 +583,144 @@ public partial class MapCanvas : UserControl
         var dx = a.X - b.X;
         var dy = a.Y - b.Y;
         return Math.Sqrt(dx * dx + dy * dy);
+    }
+
+    private Point GetZoomCenter()
+    {
+        if (MapScrollViewer.ViewportWidth > 0 && MapScrollViewer.ViewportHeight > 0)
+            return new Point(MapScrollViewer.ViewportWidth / 2, MapScrollViewer.ViewportHeight / 2);
+
+        return new Point(ActualWidth / 2, ActualHeight / 2);
+    }
+
+    private void ZoomAt(Point viewPoint, double factor)
+    {
+        if (_session.MapImage is null)
+            return;
+
+        var newZoom = Math.Clamp(_zoom * factor, MinZoom, MaxZoom);
+        if (Math.Abs(newZoom - _zoom) < 0.0001)
+            return;
+
+        var imagePoint = CanvasToImage(viewPoint);
+        _zoom = newZoom;
+
+        ApplyContentLayout();
+
+        var scale = ContentScale;
+        var contentX = imagePoint.X * scale;
+        var contentY = imagePoint.Y * scale;
+        var (letterboxX, letterboxY) = GetLetterboxOffset();
+
+        SetScrollOffsets(contentX + letterboxX - viewPoint.X, contentY + letterboxY - viewPoint.Y);
+        RedrawOverlay();
+    }
+
+    private void CenterScrollAtCurrentZoom() => SetScrollOffsets(0, 0);
+
+    private void SetScrollOffsets(double horizontal, double vertical)
+    {
+        _isApplyingScroll = true;
+        try
+        {
+            MapScrollViewer.ScrollToHorizontalOffset(Math.Max(0, horizontal));
+            MapScrollViewer.ScrollToVerticalOffset(Math.Max(0, vertical));
+        }
+        finally
+        {
+            _isApplyingScroll = false;
+        }
+
+        RecalculateViewport();
+    }
+
+    private void PanBy(double deltaX, double deltaY)
+    {
+        if (!IsScrollable())
+            return;
+
+        SetScrollOffsets(
+            MapScrollViewer.HorizontalOffset + deltaX,
+            MapScrollViewer.VerticalOffset + deltaY);
+    }
+
+    private void OnPreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (_session.MapImage is null)
+            return;
+
+        Focus();
+        var factor = e.Delta > 0 ? ZoomStep : 1 / ZoomStep;
+        ZoomAt(e.GetPosition(MapScrollViewer), factor);
+        e.Handled = true;
+    }
+
+    private void OnPreviewMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (_session.MapImage is not null && e.ChangedButton == MouseButton.Left)
+            Focus();
+
+        if (e.ChangedButton != MouseButton.Middle || _session.MapImage is null)
+            return;
+
+        if (!IsScrollable())
+            return;
+
+        _isPanning = true;
+        _panStartMouse = e.GetPosition(MapScrollViewer);
+        _panStartScrollX = MapScrollViewer.HorizontalOffset;
+        _panStartScrollY = MapScrollViewer.VerticalOffset;
+        CaptureMouse();
+        e.Handled = true;
+    }
+
+    private void OnPreviewMouseMove(object sender, MouseEventArgs e)
+    {
+        if (!_isPanning)
+            return;
+
+        var current = e.GetPosition(MapScrollViewer);
+        SetScrollOffsets(
+            _panStartScrollX + (_panStartMouse.X - current.X),
+            _panStartScrollY + (_panStartMouse.Y - current.Y));
+        e.Handled = true;
+    }
+
+    private void OnPreviewMouseUp(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton != MouseButton.Middle || !_isPanning)
+            return;
+
+        _isPanning = false;
+        ReleaseMouseCapture();
+        e.Handled = true;
+    }
+
+    public bool TryHandlePanKey(Key key)
+    {
+        if (_session.MapImage is null || !IsScrollable())
+            return false;
+
+        switch (key)
+        {
+            case Key.Left:
+            case Key.A:
+                PanBy(-KeyboardPanStep, 0);
+                return true;
+            case Key.Right:
+            case Key.D:
+                PanBy(KeyboardPanStep, 0);
+                return true;
+            case Key.Up:
+            case Key.W:
+                PanBy(0, -KeyboardPanStep);
+                return true;
+            case Key.Down:
+            case Key.S:
+                PanBy(0, KeyboardPanStep);
+                return true;
+            default:
+                return false;
+        }
     }
 }

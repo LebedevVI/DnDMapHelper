@@ -18,6 +18,12 @@
 
                 <StackPanel Grid.Column="0" Orientation="Horizontal">
                     <Button Content="Загрузить карту" Style="{StaticResource FantasyButton}" Click="LoadMap_Click"/>
+                    <Button Content="+" Style="{StaticResource FantasyButton}" Width="36" Padding="0"
+                            ToolTip="Приблизить карту" Click="ZoomIn_Click"/>
+                    <Button Content="−" Style="{StaticResource FantasyButton}" Width="36" Padding="0"
+                            ToolTip="Отдалить карту" Click="ZoomOut_Click"/>
+                    <Button Content="⊡" Style="{StaticResource FantasyButton}" Width="36" Padding="0"
+                            ToolTip="Исходный размер карты" Click="ResetZoom_Click"/>
                 </StackPanel>
 
                 <WrapPanel Grid.Column="1" HorizontalAlignment="Center">
@@ -99,11 +105,11 @@
         <Border Margin="8,0" BorderBrush="{StaticResource LeatherBrush}" BorderThickness="4" CornerRadius="2">
             <controls:MapCanvas x:Name="MapView"
                                 HighlightRegions="True"
-                                MouseLeftButtonDown="MapView_MouseLeftButtonDown"
-                                MouseRightButtonDown="MapView_MouseRightButtonDown"
-                                MouseDoubleClick="MapView_MouseDoubleClick"
-                                MouseMove="MapView_MouseMove"
-                                MouseLeftButtonUp="MapView_MouseLeftButtonUp"/>
+                                PreviewMouseLeftButtonDown="MapView_MouseLeftButtonDown"
+                                PreviewMouseRightButtonDown="MapView_MouseRightButtonDown"
+                                PreviewMouseDoubleClick="MapView_MouseDoubleClick"
+                                PreviewMouseMove="MapView_MouseMove"
+                                PreviewMouseLeftButtonUp="MapView_MouseLeftButtonUp"/>
         </Border>
     </DockPanel>
 </Window>

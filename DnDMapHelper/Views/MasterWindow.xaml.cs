@@ -64,6 +64,12 @@ public partial class MasterWindow : Window
         MoveButton.Content = _movement.GetMoveButtonLabel();
     }
 
+    private void ZoomIn_Click(object sender, RoutedEventArgs e) => MapView.ZoomIn();
+
+    private void ZoomOut_Click(object sender, RoutedEventArgs e) => MapView.ZoomOut();
+
+    private void ResetZoom_Click(object sender, RoutedEventArgs e) => MapView.ResetZoom();
+
     private void LoadMap_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new OpenFileDialog
@@ -244,7 +250,7 @@ public partial class MasterWindow : Window
             return;
         }
 
-        var canvasPoint = e.GetPosition(MapView);
+        var canvasPoint = MapView.GetViewPoint(e);
         var imagePoint = MapView.CanvasToImage(canvasPoint);
 
         if (!IsPointOnMap(imagePoint))
@@ -275,7 +281,7 @@ public partial class MasterWindow : Window
                 break;
 
             case MasterTool.DrawRegion:
-                StartRegionDrawing(canvasPoint);
+                StartRegionDrawing(e.GetPosition(MapView.OverlayCanvasElement));
                 MapView.CaptureMouse();
                 e.Handled = true;
                 break;
@@ -306,7 +312,7 @@ public partial class MasterWindow : Window
         if (_session.MapImage is null)
             return;
 
-        var canvasPoint = e.GetPosition(MapView);
+        var canvasPoint = MapView.GetViewPoint(e);
 
         var hitRegion = MapView.HitTestRegion(canvasPoint);
         if (hitRegion is not null)
@@ -359,7 +365,7 @@ public partial class MasterWindow : Window
         if (_session.MapImage is null)
             return;
 
-        var canvasPoint = e.GetPosition(MapView);
+        var canvasPoint = MapView.GetViewPoint(e);
         var hitTarget = MapView.HitTestTarget(canvasPoint);
         if (hitTarget is null)
             return;
@@ -372,6 +378,12 @@ public partial class MasterWindow : Window
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (MapView.TryHandlePanKey(e.Key))
+        {
+            e.Handled = true;
+            return;
+        }
+
         if (e.Key != Key.Delete)
             return;
 
@@ -427,7 +439,7 @@ public partial class MasterWindow : Window
     {
         if (_isDrawingPath && e.LeftButton == MouseButtonState.Pressed)
         {
-            var imagePoint = MapView.CanvasToImage(e.GetPosition(MapView));
+            var imagePoint = MapView.CanvasToImage(MapView.GetViewPoint(e));
             if (!IsPointOnMap(imagePoint))
                 return;
 
@@ -456,7 +468,7 @@ public partial class MasterWindow : Window
         }
         else if (_isDrawingRegion)
         {
-            FinishRegionDrawing(e.GetPosition(MapView));
+            FinishRegionDrawing(e.GetPosition(MapView.OverlayCanvasElement));
             MapView.ReleaseMouseCapture();
             e.Handled = true;
         }
@@ -625,7 +637,7 @@ public partial class MasterWindow : Window
         }
 
         var canvasRect = new Rect(x, y, w, h);
-        var imageRect = MapView.Viewport.CanvasToImage(canvasRect);
+        var imageRect = MapView.ContentToImage(canvasRect);
 
         var dialog = new RegionTextDialog("Описание земель", string.Empty) { Owner = this };
         if (dialog.ShowDialog() != true)
@@ -683,7 +695,7 @@ public partial class MasterWindow : Window
 
         StatusText.Text = _currentTool switch
         {
-            MasterTool.Navigate => "Обзор: клик — выбрать цель или область; двойной клик — редактировать; Delete — удалить.",
+            MasterTool.Navigate => "Обзор: клик — выбрать; двойной клик — редактировать; Delete — удалить. Колёсико — масштаб; ползунки или WASD/стрелки — сдвиг; ⊡ — исходный размер.",
             MasterTool.PartyMarker => "Кликните на карте, чтобы поставить метку партии (синий щит).",
             MasterTool.TargetMarker => "Кликните на карте — метка цели и окно для подписи (например, «Логово врага»).",
             MasterTool.DrawPath => "Рисуйте маршрут к выбранной цели. Каждый новый начинается с конца предыдущего. Очередь — справа.",
