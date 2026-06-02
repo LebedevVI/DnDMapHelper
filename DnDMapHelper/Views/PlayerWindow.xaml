@@ -11,7 +11,7 @@
         <controls:MapCanvas x:Name="MapView"
                             IsPlayerMode="True"
                             ShowRegions="False"
-                            MouseLeftButtonDown="MapView_MouseLeftButtonDown"/>
+                            PreviewMouseLeftButtonDown="MapView_MouseLeftButtonDown"/>
 
         <Border VerticalAlignment="Top" HorizontalAlignment="Right"
                 Margin="12" Background="#AA2A1A08" CornerRadius="4" Padding="4">

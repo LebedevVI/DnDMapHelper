@@ -773,6 +773,12 @@ public partial class MasterWindow : Window
             return;
         }
 
+        if (!_session.HasMap)
+        {
+            StatusText.Text = "Сначала загрузите карту — кнопка «Загрузить карту» вверху слева.";
+            return;
+        }
+
         StatusText.Text = _currentTool switch
         {
             MasterTool.Navigate => "Обзор: клик — выбрать; двойной клик — редактировать; Delete — удалить. Колёсико — масштаб; ползунки или WASD/стрелки — сдвиг; ⊡ — исходный размер.",

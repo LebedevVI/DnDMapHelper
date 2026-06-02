@@ -70,6 +70,8 @@ public partial class PlayerWindow : Window
     {
         if (e.PropertyName is nameof(GameSession.MapImage) or nameof(GameSession.HasMap))
             UpdateNoMapHint();
+        if (e.PropertyName is nameof(GameSession.Regions) or null)
+            RefreshMap();
     }
 
     public void RefreshMap() => MapView.Refresh();
