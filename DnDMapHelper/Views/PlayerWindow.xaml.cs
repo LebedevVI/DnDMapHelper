@@ -109,6 +109,15 @@ public partial class PlayerWindow : Window
         popup.ShowDialog();
     }
 
+    public void ShowEncounterPopup(string title, string description)
+    {
+        if (!IsLoaded)
+            return;
+
+        var popup = new ScrollPopupWindow(title, description, this);
+        popup.ShowDialog();
+    }
+
     private void Window_KeyDown(object sender, KeyEventArgs e)
     {
         if (MapView.TryHandlePanKey(e.Key))

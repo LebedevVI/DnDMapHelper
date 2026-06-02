@@ -31,6 +31,7 @@ public partial class MasterWindow : Window
 
         _movement.MovementFrame += OnMovementFrame;
         _movement.MovementStateChanged += UpdateMoveButton;
+        _session.EncounterTriggered += OnEncounterTriggered;
 
         UpdateStatus();
         UpdateRouteQueueHint();
@@ -91,10 +92,12 @@ public partial class MasterWindow : Window
         _session.MapImage = image;
         _session.Targets.Clear();
         _session.Regions.Clear();
+        _session.Encounters.Clear();
         _session.PartyPosition = null;
         _session.ClearAllRoutes();
         _session.SelectedTargetId = null;
         _session.SelectedRegionId = null;
+        _session.SelectedEncounterId = null;
         SyncRouteList();
         MapView.Refresh();
         UpdateStatus("Карта загружена. Разместите метку партии и цели.");
@@ -230,14 +233,15 @@ public partial class MasterWindow : Window
 
     private void UncheckOtherTools(ToggleButton active)
     {
-        foreach (var tool in new[] { ToolNavigate, ToolParty, ToolTarget, ToolPath, ToolRegion })
+        foreach (var tool in new[] { ToolNavigate, ToolParty, ToolTarget, ToolEncounter, ToolPath, ToolRegion })
         {
             if (tool != active)
                 tool.IsChecked = false;
         }
 
         if (ToolNavigate.IsChecked != true && ToolParty.IsChecked != true &&
-            ToolTarget.IsChecked != true && ToolPath.IsChecked != true &&
+            ToolTarget.IsChecked != true && ToolEncounter.IsChecked != true &&
+            ToolPath.IsChecked != true &&
             ToolRegion.IsChecked != true)
             active.IsChecked = true;
     }
@@ -274,6 +278,10 @@ public partial class MasterWindow : Window
                 EditTargetLabel(target);
                 break;
 
+            case MasterTool.EncounterMarker:
+                AddEncounter(imagePoint);
+                break;
+
             case MasterTool.DrawPath:
                 StartPathDrawing(imagePoint);
                 MapView.CaptureMouse();
@@ -302,6 +310,15 @@ public partial class MasterWindow : Window
                     _session.SelectRegion(hitRegion.Id);
                     MapView.Refresh();
                     UpdateStatus($"Область: «{hitRegion.Title}». Двойной клик — текст, Delete — удалить.");
+                    break;
+                }
+
+                var hitEncounter = MapView.HitTestEncounter(canvasPoint);
+                if (hitEncounter is not null)
+                {
+                    _session.SelectEncounter(hitEncounter.Id);
+                    MapView.Refresh();
+                    UpdateStatus($"Столкновение: «{hitEncounter.Title}». Двойной клик — описание, Delete — удалить.");
                 }
                 break;
         }
@@ -323,10 +340,18 @@ public partial class MasterWindow : Window
         }
 
         var hitTarget = MapView.HitTestTarget(canvasPoint);
-        if (hitTarget is null)
+        if (hitTarget is not null)
+        {
+            EditTargetLabel(hitTarget);
+            e.Handled = true;
+            return;
+        }
+
+        var hitEncounter = MapView.HitTestEncounter(canvasPoint);
+        if (hitEncounter is null)
             return;
 
-        EditTargetLabel(hitTarget);
+        EditEncounter(hitEncounter);
         e.Handled = true;
     }
 
@@ -358,6 +383,39 @@ public partial class MasterWindow : Window
         MapView.Refresh();
         SyncRouteList();
         UpdateStatus($"Подпись цели: «{target.Label}»");
+    }
+
+    private void AddEncounter(Point imagePoint)
+    {
+        var dialog = new RegionTextDialog("Новое столкновение", string.Empty) { Owner = this, Title = "Боевое столкновение" };
+        if (dialog.ShowDialog() != true)
+            return;
+
+        var encounter = new EncounterPoint
+        {
+            Position = imagePoint,
+            Title = dialog.RegionTitle,
+            Description = dialog.RegionDescription
+        };
+        _session.Encounters.Add(encounter);
+        _session.SelectEncounter(encounter.Id);
+        _session.NotifyEncountersChanged();
+        MapView.Refresh();
+        UpdateStatus($"Добавлено столкновение: «{encounter.Title}».");
+    }
+
+    private void EditEncounter(EncounterPoint encounter)
+    {
+        var dialog = new RegionTextDialog(encounter.Title, encounter.Description) { Owner = this, Title = "Боевое столкновение" };
+        if (dialog.ShowDialog() != true)
+            return;
+
+        encounter.Title = dialog.RegionTitle;
+        encounter.Description = dialog.RegionDescription;
+        _session.SelectEncounter(encounter.Id);
+        _session.NotifyEncountersChanged();
+        MapView.Refresh();
+        UpdateStatus($"Столкновение обновлено: «{encounter.Title}».");
     }
 
     private void MapView_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
@@ -396,10 +454,18 @@ public partial class MasterWindow : Window
         }
 
         var target = _session.SelectedTarget;
-        if (target is null)
+        if (target is not null)
+        {
+            TryDeleteTarget(target);
+            e.Handled = true;
+            return;
+        }
+
+        var encounter = _session.SelectedEncounter;
+        if (encounter is null)
             return;
 
-        TryDeleteTarget(target);
+        TryDeleteEncounter(encounter);
         e.Handled = true;
     }
 
@@ -433,6 +499,19 @@ public partial class MasterWindow : Window
         SyncRouteList();
         MapView.Refresh();
         UpdateStatus($"Цель «{target.Label}» удалена.");
+    }
+
+    private void TryDeleteEncounter(EncounterPoint encounter)
+    {
+        if (MessageBox.Show(this, $"Удалить столкновение «{encounter.Title}»?", "Удаление столкновения",
+                MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+
+        if (!_session.RemoveEncounter(encounter.Id))
+            return;
+
+        MapView.Refresh();
+        UpdateStatus($"Столкновение «{encounter.Title}» удалено.");
     }
 
     private void MapView_MouseMove(object sender, MouseEventArgs e)
@@ -698,16 +777,27 @@ public partial class MasterWindow : Window
             MasterTool.Navigate => "Обзор: клик — выбрать; двойной клик — редактировать; Delete — удалить. Колёсико — масштаб; ползунки или WASD/стрелки — сдвиг; ⊡ — исходный размер.",
             MasterTool.PartyMarker => "Кликните на карте, чтобы поставить метку партии (синий щит).",
             MasterTool.TargetMarker => "Кликните на карте — метка цели и окно для подписи (например, «Логово врага»).",
+            MasterTool.EncounterMarker => "Кликните на карте — создайте боевое столкновение (название и описание).",
             MasterTool.DrawPath => "Рисуйте маршрут к выбранной цели. Каждый новый начинается с конца предыдущего. Очередь — справа.",
             MasterTool.DrawRegion => "Выделите прямоугольник — откроется окно для заголовка и текста справки.",
             _ => string.Empty
         };
     }
 
+    private void OnEncounterTriggered(EncounterPoint encounter)
+    {
+        _movement.StopRenderLoop();
+        UpdateMoveButton();
+        MapView.Refresh();
+        _playerWindow?.ShowEncounterPopup(encounter.Title, encounter.Description);
+        UpdateStatus($"Столкновение «{encounter.Title}»: движение приостановлено.");
+    }
+
     protected override void OnClosed(EventArgs e)
     {
         _movement.MovementFrame -= OnMovementFrame;
         _movement.MovementStateChanged -= UpdateMoveButton;
+        _session.EncounterTriggered -= OnEncounterTriggered;
         _movement.StopRenderLoop();
         base.OnClosed(e);
     }

@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
 
@@ -63,4 +64,105 @@ public static class HandDrawnMarkerHelper
 
     private static double PseudoRandom(int seed, int channel) =>
         ((seed * 1103515245 + channel * 12345) & 0x7FFFFFFF) / (double)0x7FFFFFFF;
+
+    public static Canvas CreateEncounterSwords(Point center, bool isSelected)
+    {
+        var bladeFill = new SolidColorBrush(Color.FromRgb(206, 192, 170));
+        var bladeStroke = new SolidColorBrush(Color.FromRgb(80, 66, 49));
+        var gripFill = new SolidColorBrush(isSelected ? Color.FromRgb(170, 48, 20) : Color.FromRgb(123, 83, 40));
+        var guardFill = new SolidColorBrush(Color.FromRgb(192, 145, 55));
+
+        var root = new Canvas { IsHitTestVisible = false };
+        root.Children.Add(CreateSword(center, -36, bladeFill, bladeStroke, gripFill, guardFill));
+        root.Children.Add(CreateSword(center, 36, bladeFill, bladeStroke, gripFill, guardFill));
+
+        var jewel = new Ellipse
+        {
+            Width = isSelected ? 7 : 6,
+            Height = isSelected ? 7 : 6,
+            Fill = new SolidColorBrush(isSelected ? Color.FromRgb(255, 220, 110) : Color.FromRgb(220, 170, 75)),
+            Stroke = bladeStroke,
+            StrokeThickness = 1.1
+        };
+        Canvas.SetLeft(jewel, center.X - jewel.Width / 2);
+        Canvas.SetTop(jewel, center.Y - jewel.Height / 2);
+        root.Children.Add(jewel);
+
+        return root;
+    }
+
+    private static Canvas CreateSword(
+        Point center,
+        double angle,
+        Brush bladeFill,
+        Brush bladeStroke,
+        Brush gripFill,
+        Brush guardFill)
+    {
+        const double bladeLength = 24;
+        const double bladeWidth = 5.5;
+
+        var sword = new Canvas();
+
+        var blade = new Polygon
+        {
+            Points = new PointCollection
+            {
+                new(-bladeWidth / 2, -bladeLength),
+                new(bladeWidth / 2, -bladeLength),
+                new(bladeWidth * 0.35, -4),
+                new(0, 0),
+                new(-bladeWidth * 0.35, -4)
+            },
+            Fill = bladeFill,
+            Stroke = bladeStroke,
+            StrokeThickness = 1
+        };
+        sword.Children.Add(blade);
+
+        var guard = new Rectangle
+        {
+            Width = 14,
+            Height = 3.5,
+            RadiusX = 1.2,
+            RadiusY = 1.2,
+            Fill = guardFill,
+            Stroke = bladeStroke,
+            StrokeThickness = 1
+        };
+        Canvas.SetLeft(guard, -guard.Width / 2);
+        Canvas.SetTop(guard, 0.2);
+        sword.Children.Add(guard);
+
+        var grip = new Rectangle
+        {
+            Width = 3.8,
+            Height = 11,
+            RadiusX = 1,
+            RadiusY = 1,
+            Fill = gripFill,
+            Stroke = bladeStroke,
+            StrokeThickness = 1
+        };
+        Canvas.SetLeft(grip, -grip.Width / 2);
+        Canvas.SetTop(grip, 3.2);
+        sword.Children.Add(grip);
+
+        var pommel = new Ellipse
+        {
+            Width = 4.2,
+            Height = 4.2,
+            Fill = guardFill,
+            Stroke = bladeStroke,
+            StrokeThickness = 1
+        };
+        Canvas.SetLeft(pommel, -pommel.Width / 2);
+        Canvas.SetTop(pommel, 12.8);
+        sword.Children.Add(pommel);
+
+        sword.RenderTransform = new RotateTransform(angle, 0, 0);
+        Canvas.SetLeft(sword, center.X);
+        Canvas.SetTop(sword, center.Y);
+        return sword;
+    }
 }

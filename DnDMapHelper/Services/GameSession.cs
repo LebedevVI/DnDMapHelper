@@ -22,6 +22,9 @@ public sealed class GameSession : INotifyPropertyChanged
     private Point? _partyDisplayPosition;
     private int _selectedRouteIndex = -1;
     private IReadOnlyList<Point>? _activeMovementPath;
+    private Guid? _selectedEncounterId;
+    private Guid? _pendingEncounterId;
+    private double _pausedRouteProgress;
 
     public GameSession()
     {
@@ -29,6 +32,7 @@ public sealed class GameSession : INotifyPropertyChanged
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
+    public event Action<EncounterPoint>? EncounterTriggered;
 
     public ObservableCollection<MovementRoute> Routes { get; } = [];
 
@@ -64,6 +68,7 @@ public sealed class GameSession : INotifyPropertyChanged
     public ObservableCollection<TargetMarker> Targets { get; } = [];
 
     public ObservableCollection<MapRegion> Regions { get; } = [];
+    public ObservableCollection<EncounterPoint> Encounters { get; } = [];
 
     public Guid? SelectedTargetId
     {
@@ -100,6 +105,27 @@ public sealed class GameSession : INotifyPropertyChanged
     public MapRegion? SelectedRegion =>
         SelectedRegionId.HasValue
             ? Regions.FirstOrDefault(r => r.Id == SelectedRegionId.Value)
+            : null;
+
+    public Guid? SelectedEncounterId
+    {
+        get => _selectedEncounterId;
+        set
+        {
+            _selectedEncounterId = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(SelectedEncounter));
+            OnPropertyChanged(nameof(HasSelectedEncounter));
+            NotifyEncountersChanged();
+        }
+    }
+
+    public bool HasSelectedEncounter =>
+        SelectedEncounterId.HasValue && Encounters.Any(e => e.Id == SelectedEncounterId.Value);
+
+    public EncounterPoint? SelectedEncounter =>
+        SelectedEncounterId.HasValue
+            ? Encounters.FirstOrDefault(e => e.Id == SelectedEncounterId.Value)
             : null;
 
     /// <summary>Черновик маршрута при рисовании на экране мастера.</summary>
@@ -158,12 +184,22 @@ public sealed class GameSession : INotifyPropertyChanged
         SelectedTargetId = id;
         if (SelectedRegionId.HasValue)
             SelectedRegionId = null;
+        if (SelectedEncounterId.HasValue)
+            SelectedEncounterId = null;
     }
 
     public void SelectRegion(Guid id)
     {
         SelectedRegionId = id;
         SelectedTargetId = null;
+        SelectedEncounterId = null;
+    }
+
+    public void SelectEncounter(Guid id)
+    {
+        SelectedEncounterId = id;
+        SelectedTargetId = null;
+        SelectedRegionId = null;
     }
 
     public bool RemoveRegion(Guid regionId)
@@ -209,6 +245,22 @@ public sealed class GameSession : INotifyPropertyChanged
         return true;
     }
 
+    public bool RemoveEncounter(Guid encounterId)
+    {
+        var encounter = Encounters.FirstOrDefault(e => e.Id == encounterId);
+        if (encounter is null)
+            return false;
+
+        Encounters.Remove(encounter);
+        if (SelectedEncounterId == encounterId)
+            SelectedEncounterId = null;
+        if (_pendingEncounterId == encounterId)
+            _pendingEncounterId = null;
+
+        NotifyEncountersChanged();
+        return true;
+    }
+
     public Point GetNextRouteStartPoint()
     {
         if (Routes.Count > 0)
@@ -245,6 +297,8 @@ public sealed class GameSession : INotifyPropertyChanged
         DraftPath = [];
         SelectedRouteIndex = -1;
         _activeMovementPath = null;
+        _pendingEncounterId = null;
+        _pausedRouteProgress = 0;
         ResetPartyMovement();
         NotifyRoutesChanged();
     }
@@ -254,11 +308,18 @@ public sealed class GameSession : INotifyPropertyChanged
         IsPartyMoving = false;
         _partyPathProgress = 0;
         _activeMovementPath = null;
+        _pendingEncounterId = null;
+        _pausedRouteProgress = 0;
         PartyDisplayPosition = PartyPosition;
     }
 
     public bool CanStartMovement() =>
-        HasPartyMarker && ActiveRoute is not null && ActiveRoute.Points.Count >= 2 && !IsPartyMoving;
+        HasPartyMarker
+        && !IsPartyMoving
+        && ((HasPendingEncounter && _activeMovementPath is not null)
+            || (ActiveRoute is not null && ActiveRoute.Points.Count >= 2));
+
+    public bool HasPendingEncounter => _pendingEncounterId.HasValue;
 
     public bool IsPartyMoving
     {
@@ -271,10 +332,14 @@ public sealed class GameSession : INotifyPropertyChanged
         if (!CanStartMovement())
             return;
 
-        _activeMovementPath = ActiveRoute!.Points.ToList();
+        if (!HasPendingEncounter)
+        {
+            _activeMovementPath = ActiveRoute!.Points.ToList();
+            _partyPathProgress = 0;
+        }
+
         IsPartyMoving = true;
-        _partyPathProgress = 0;
-        PartyDisplayPosition = _activeMovementPath[0];
+        PartyDisplayPosition = Helpers.PathGeometryHelper.GetPointOnSmoothPath(_activeMovementPath!, _partyPathProgress);
     }
 
     public void UpdatePartyMovement(double progress)
@@ -284,7 +349,11 @@ public sealed class GameSession : INotifyPropertyChanged
             return;
 
         _partyPathProgress = Math.Clamp(progress, 0, 1);
-        PartyDisplayPosition = Helpers.PathGeometryHelper.GetPointOnSmoothPath(path, _partyPathProgress);
+        var currentPosition = Helpers.PathGeometryHelper.GetPointOnSmoothPath(path, _partyPathProgress);
+        PartyDisplayPosition = currentPosition;
+
+        if (TryTriggerEncounter(currentPosition))
+            return;
 
         if (_partyPathProgress >= 1)
         {
@@ -312,6 +381,56 @@ public sealed class GameSession : INotifyPropertyChanged
         NotifyRoutesChanged();
     }
 
+    private bool TryTriggerEncounter(Point partyPosition)
+    {
+        if (_pendingEncounterId.HasValue || Encounters.Count == 0)
+            return false;
+
+        const double triggerDistance = 36;
+        var triggerDistanceSq = triggerDistance * triggerDistance;
+        EncounterPoint? nearest = null;
+        var nearestSq = double.MaxValue;
+
+        foreach (var encounter in Encounters)
+        {
+            var dx = encounter.Position.X - partyPosition.X;
+            var dy = encounter.Position.Y - partyPosition.Y;
+            var distSq = dx * dx + dy * dy;
+            if (distSq > triggerDistanceSq || distSq >= nearestSq)
+                continue;
+
+            nearest = encounter;
+            nearestSq = distSq;
+        }
+
+        if (nearest is null)
+            return false;
+
+        _pendingEncounterId = nearest.Id;
+        _pausedRouteProgress = _partyPathProgress;
+        IsPartyMoving = false;
+        PartyPosition = partyPosition;
+        SelectEncounter(nearest.Id);
+        EncounterTriggered?.Invoke(nearest);
+        return true;
+    }
+
+    public bool TryResumeAfterEncounter()
+    {
+        if (!_pendingEncounterId.HasValue || _activeMovementPath is null)
+            return false;
+
+        var encounterId = _pendingEncounterId.Value;
+        RemoveEncounter(encounterId);
+        _pendingEncounterId = null;
+        _partyPathProgress = _pausedRouteProgress;
+        _pausedRouteProgress = 0;
+        BeginPartyMovement();
+        return true;
+    }
+
+    public double GetCurrentMovementProgress() => _partyPathProgress;
+
     private void RenumberRoutes()
     {
         for (var i = 0; i < Routes.Count; i++)
@@ -333,6 +452,13 @@ public sealed class GameSession : INotifyPropertyChanged
     public void NotifyTargetsChanged() => OnPropertyChanged(nameof(Targets));
 
     public void NotifyRegionsChanged() => OnPropertyChanged(nameof(Regions));
+
+    public void NotifyEncountersChanged()
+    {
+        OnPropertyChanged(nameof(Encounters));
+        OnPropertyChanged(nameof(SelectedEncounter));
+        OnPropertyChanged(nameof(HasSelectedEncounter));
+    }
 
     private void OnPropertyChanged([CallerMemberName] string? name = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));

@@ -33,6 +33,8 @@
                                   Checked="Tool_Checked" Tag="PartyMarker"/>
                     <ToggleButton x:Name="ToolTarget" Content="Метка цели" Style="{StaticResource FantasyToolButton}"
                                   Checked="Tool_Checked" Tag="TargetMarker"/>
+                    <ToggleButton x:Name="ToolEncounter" Content="Столкновение" Style="{StaticResource FantasyToolButton}"
+                                  Checked="Tool_Checked" Tag="EncounterMarker"/>
                     <ToggleButton x:Name="ToolPath" Content="Маршрут" Style="{StaticResource FantasyToolButton}"
                                   Checked="Tool_Checked" Tag="DrawPath"/>
                     <ToggleButton x:Name="ToolRegion" Content="Описание области" Style="{StaticResource FantasyToolButton}"

@@ -177,11 +177,13 @@ public partial class MapCanvas : UserControl
             or nameof(GameSession.PartyDisplayPosition)
             or nameof(GameSession.Targets)
             or nameof(GameSession.Regions)
+            or nameof(GameSession.Encounters)
             or nameof(GameSession.DraftPath)
             or nameof(GameSession.Routes)
             or nameof(GameSession.SelectedRouteIndex)
             or nameof(GameSession.SelectedTargetId)
             or nameof(GameSession.SelectedRegionId)
+            or nameof(GameSession.SelectedEncounterId)
             or null)
         {
             Dispatcher.BeginInvoke(RedrawOverlay);
@@ -307,6 +309,8 @@ public partial class MapCanvas : UserControl
 
             DrawRoutes();
             DrawTargets();
+            if (!IsPlayerMode)
+                DrawEncounters();
             DrawParty();
         }
         finally
@@ -558,6 +562,34 @@ public partial class MapCanvas : UserControl
         OverlayCanvas.Children.Add(pin);
     }
 
+    private void DrawEncounters()
+    {
+        foreach (var encounter in _session.Encounters)
+        {
+            var center = ImageToContent(encounter.Position);
+            var isSelected = _session.SelectedEncounterId == encounter.Id;
+            OverlayCanvas.Children.Add(HandDrawnMarkerHelper.CreateEncounterSwords(center, isSelected));
+
+            if (!string.IsNullOrWhiteSpace(encounter.Title))
+            {
+                var label = new TextBlock
+                {
+                    Text = encounter.Title,
+                    FontFamily = new FontFamily("Georgia"),
+                    FontSize = 11,
+                    FontWeight = FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(Color.FromRgb(255, 236, 179)),
+                    Background = new SolidColorBrush(Color.FromArgb(210, 48, 27, 12)),
+                    Padding = new Thickness(4, 2, 4, 2)
+                };
+                label.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                Canvas.SetLeft(label, center.X - label.DesiredSize.Width / 2);
+                Canvas.SetTop(label, center.Y + 12);
+                OverlayCanvas.Children.Add(label);
+            }
+        }
+    }
+
     public MapRegion? HitTestRegion(Point viewPoint)
     {
         var imagePoint = CanvasToImage(viewPoint);
@@ -576,6 +608,15 @@ public partial class MapCanvas : UserControl
         return _session.Targets
             .OrderBy(t => Distance(t.Position, imagePoint))
             .FirstOrDefault(t => Distance(t.Position, imagePoint) <= tolerance / Math.Max(_viewport.Scale, 0.01));
+    }
+
+    public EncounterPoint? HitTestEncounter(Point viewPoint, double tolerance = 20)
+    {
+        var imagePoint = CanvasToImage(viewPoint);
+        return _session.Encounters
+            .OrderBy(encounter => Distance(encounter.Position, imagePoint))
+            .FirstOrDefault(encounter =>
+                Distance(encounter.Position, imagePoint) <= tolerance / Math.Max(_viewport.Scale, 0.01));
     }
 
     private static double Distance(Point a, Point b)

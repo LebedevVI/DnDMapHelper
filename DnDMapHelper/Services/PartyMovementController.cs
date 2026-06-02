@@ -12,6 +12,8 @@ public sealed class PartyMovementController
     private EventHandler? _renderHandler;
     private DateTime _moveStartTime;
     private double _moveDurationSeconds = 12;
+    private double _progressBase;
+    private double _progressSpan = 1;
 
     public event Action? MovementFrame;
     public event Action? MovementStateChanged;
@@ -20,6 +22,9 @@ public sealed class PartyMovementController
 
     public string GetMoveButtonLabel()
     {
+        if (_session.HasPendingEncounter)
+            return "⚔ Продолжить движение";
+
         var count = _session.Routes.Count;
         return count switch
         {
@@ -34,10 +39,25 @@ public sealed class PartyMovementController
         if (!_session.CanStartMovement())
             return;
 
-        var pathLength = PathGeometryHelper.GetSmoothPathLength(_session.ActiveMovementPath);
-        _moveDurationSeconds = PathGeometryHelper.CalculateMovementDurationSeconds(pathLength);
+        if (_session.HasPendingEncounter)
+        {
+            var startProgress = _session.GetCurrentMovementProgress();
+            _progressBase = startProgress;
+            _progressSpan = Math.Max(0.001, 1 - startProgress);
+            _moveDurationSeconds = Math.Max(0.4, PathGeometryHelper.CalculateMovementDurationSeconds(
+                PathGeometryHelper.GetSmoothPathLength(_session.ActiveMovementPath)) * _progressSpan);
+            if (!_session.TryResumeAfterEncounter())
+                return;
+        }
+        else
+        {
+            _progressBase = 0;
+            _progressSpan = 1;
+            var pathLength = PathGeometryHelper.GetSmoothPathLength(_session.ActiveMovementPath);
+            _moveDurationSeconds = PathGeometryHelper.CalculateMovementDurationSeconds(pathLength);
+            _session.BeginPartyMovement();
+        }
 
-        _session.BeginPartyMovement();
         _moveStartTime = DateTime.UtcNow;
         MovementStateChanged?.Invoke();
 
@@ -67,8 +87,8 @@ public sealed class PartyMovementController
         var elapsed = (DateTime.UtcNow - _moveStartTime).TotalSeconds;
         var linearProgress = Math.Min(1.0, elapsed / _moveDurationSeconds);
         var easedProgress = PathGeometryHelper.EaseInOutCubic(linearProgress);
-
-        _session.UpdatePartyMovement(easedProgress);
+        var routeProgress = _progressBase + easedProgress * _progressSpan;
+        _session.UpdatePartyMovement(routeProgress);
         MovementFrame?.Invoke();
     }
 }
