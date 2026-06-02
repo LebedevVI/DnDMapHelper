@@ -18,11 +18,14 @@ public sealed class PartyMovementController
     public event Action? MovementFrame;
     public event Action? MovementStateChanged;
 
-    public bool CanStart => _session.CanStartMovement();
+    public bool CanUseMoveButton => _session.IsPartyMoving || _session.CanStartMovement();
 
     public string GetMoveButtonLabel()
     {
-        if (_session.HasPendingEncounter)
+        if (_session.IsPartyMoving)
+            return "⏸ Пауза";
+
+        if (_session.HasPausedMovement)
             return "⚔ Продолжить движение";
 
         var count = _session.Routes.Count;
@@ -34,19 +37,25 @@ public sealed class PartyMovementController
         };
     }
 
-    public void TryStartMovement()
+    public void TryToggleMovement()
     {
+        if (_session.IsPartyMoving)
+        {
+            PauseMovement();
+            return;
+        }
+
         if (!_session.CanStartMovement())
             return;
 
-        if (_session.HasPendingEncounter)
+        if (_session.HasPausedMovement)
         {
             var startProgress = _session.GetCurrentMovementProgress();
             _progressBase = startProgress;
             _progressSpan = Math.Max(0.001, 1 - startProgress);
             _moveDurationSeconds = Math.Max(0.4, PathGeometryHelper.CalculateMovementDurationSeconds(
                 PathGeometryHelper.GetSmoothPathLength(_session.ActiveMovementPath)) * _progressSpan);
-            if (!_session.TryResumeAfterEncounter())
+            if (!_session.TryResumeAfterPause())
                 return;
         }
         else
@@ -64,6 +73,16 @@ public sealed class PartyMovementController
         StopRenderLoop();
         _renderHandler = OnRendering;
         CompositionTarget.Rendering += _renderHandler;
+    }
+
+    public void PauseMovement()
+    {
+        if (!_session.IsPartyMoving)
+            return;
+
+        _session.PausePartyMovement();
+        StopRenderLoop();
+        MovementStateChanged?.Invoke();
     }
 
     public void StopRenderLoop()

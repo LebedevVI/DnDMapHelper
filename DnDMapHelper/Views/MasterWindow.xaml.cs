@@ -45,6 +45,7 @@ public partial class MasterWindow : Window
                 or nameof(GameSession.HasRoutes)
                 or nameof(GameSession.ActiveRoute)
                 or nameof(GameSession.IsPartyMoving)
+                or nameof(GameSession.HasPausedMovement)
                 or nameof(GameSession.CanStartMovement))
                 UpdateMoveButton();
         };
@@ -57,11 +58,11 @@ public partial class MasterWindow : Window
     }
 
     private void MoveButton_Click(object sender, RoutedEventArgs e) =>
-        _movement.TryStartMovement();
+        _movement.TryToggleMovement();
 
     private void UpdateMoveButton()
     {
-        MoveButton.IsEnabled = _movement.CanStart;
+        MoveButton.IsEnabled = _movement.CanUseMoveButton;
         MoveButton.Content = _movement.GetMoveButtonLabel();
     }
 

@@ -311,13 +311,18 @@ public sealed class GameSession : INotifyPropertyChanged
         _pendingEncounterId = null;
         _pausedRouteProgress = 0;
         PartyDisplayPosition = PartyPosition;
+        OnPropertyChanged(nameof(HasPausedMovement));
+        OnPropertyChanged(nameof(CanStartMovement));
     }
+
+    public bool HasPausedMovement =>
+        !IsPartyMoving && _activeMovementPath is not null && _partyPathProgress < 1;
 
     public bool CanStartMovement() =>
         HasPartyMarker
         && !IsPartyMoving
-        && ((HasPendingEncounter && _activeMovementPath is not null)
-            || (ActiveRoute is not null && ActiveRoute.Points.Count >= 2));
+        && (HasPausedMovement
+            || (ActiveRoute is not null && ActiveRoute.Points.Count >= 2 && _activeMovementPath is null));
 
     public bool HasPendingEncounter => _pendingEncounterId.HasValue;
 
@@ -332,7 +337,7 @@ public sealed class GameSession : INotifyPropertyChanged
         if (!CanStartMovement())
             return;
 
-        if (!HasPendingEncounter)
+        if (_activeMovementPath is null)
         {
             _activeMovementPath = ActiveRoute!.Points.ToList();
             _partyPathProgress = 0;
@@ -340,6 +345,19 @@ public sealed class GameSession : INotifyPropertyChanged
 
         IsPartyMoving = true;
         PartyDisplayPosition = Helpers.PathGeometryHelper.GetPointOnSmoothPath(_activeMovementPath!, _partyPathProgress);
+    }
+
+    public void PausePartyMovement()
+    {
+        if (!IsPartyMoving || _activeMovementPath is null)
+            return;
+
+        if (PartyDisplayPosition is { } pos)
+            PartyPosition = pos;
+
+        IsPartyMoving = false;
+        OnPropertyChanged(nameof(HasPausedMovement));
+        OnPropertyChanged(nameof(CanStartMovement));
     }
 
     public void UpdatePartyMovement(double progress)
@@ -411,20 +429,26 @@ public sealed class GameSession : INotifyPropertyChanged
         IsPartyMoving = false;
         PartyPosition = partyPosition;
         SelectEncounter(nearest.Id);
+        OnPropertyChanged(nameof(HasPausedMovement));
+        OnPropertyChanged(nameof(CanStartMovement));
         EncounterTriggered?.Invoke(nearest);
         return true;
     }
 
-    public bool TryResumeAfterEncounter()
+    public bool TryResumeAfterPause()
     {
-        if (!_pendingEncounterId.HasValue || _activeMovementPath is null)
+        if (!HasPausedMovement || _activeMovementPath is null)
             return false;
 
-        var encounterId = _pendingEncounterId.Value;
-        RemoveEncounter(encounterId);
-        _pendingEncounterId = null;
-        _partyPathProgress = _pausedRouteProgress;
-        _pausedRouteProgress = 0;
+        if (HasPendingEncounter)
+        {
+            var encounterId = _pendingEncounterId!.Value;
+            RemoveEncounter(encounterId);
+            _pendingEncounterId = null;
+            _partyPathProgress = _pausedRouteProgress;
+            _pausedRouteProgress = 0;
+        }
+
         BeginPartyMovement();
         return true;
     }
