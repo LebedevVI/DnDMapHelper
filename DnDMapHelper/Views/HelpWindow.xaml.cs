@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Media;
 using DnDMapHelper.Help;
 
@@ -62,9 +63,35 @@ public partial class HelpWindow : Window
 
             if (text.StartsWith("▸ "))
             {
+                var content = text[2..];
+                var dashIndex = content.IndexOf(" — ", StringComparison.Ordinal);
+                if (dashIndex > 0)
+                {
+                    var block = new TextBlock
+                    {
+                        FontFamily = BodyFont,
+                        FontSize = 14,
+                        LineHeight = 22,
+                        TextWrapping = TextWrapping.Wrap,
+                        Foreground = ink,
+                        Margin = new Thickness(0, 10, 0, 4)
+                    };
+                    block.Inlines.Add(new Run(content[..dashIndex])
+                    {
+                        FontFamily = TitleFont,
+                        FontWeight = FontWeights.SemiBold
+                    });
+                    block.Inlines.Add(new Run(content[dashIndex..])
+                    {
+                        FontWeight = FontWeights.Normal
+                    });
+                    SectionsPanel.Children.Add(block);
+                    continue;
+                }
+
                 SectionsPanel.Children.Add(new TextBlock
                 {
-                    Text = text[2..],
+                    Text = content,
                     FontFamily = TitleFont,
                     FontSize = 14,
                     FontWeight = FontWeights.SemiBold,
