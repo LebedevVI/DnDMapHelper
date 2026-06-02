@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Threading;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
@@ -176,13 +177,19 @@ public partial class MasterWindow : Window
         help.ShowDialog();
     }
 
-    private void OpenPlayer_Click(object sender, RoutedEventArgs e)
+    private void OpenPlayer_Click(object sender, RoutedEventArgs e) => EnsurePlayerWindow(activateIfOpen: true);
+
+    private void EnsurePlayerWindow(bool activateIfOpen = false)
     {
         if (_playerWindow is { IsLoaded: true })
         {
-            _playerWindow.Activate();
-            if (_playerWindow.WindowState == WindowState.Minimized)
-                _playerWindow.WindowState = WindowState.Normal;
+            if (activateIfOpen)
+            {
+                _playerWindow.Activate();
+                if (_playerWindow.WindowState == WindowState.Minimized)
+                    _playerWindow.WindowState = WindowState.Normal;
+            }
+
             return;
         }
 
@@ -796,8 +803,20 @@ public partial class MasterWindow : Window
         _movement.StopRenderLoop();
         UpdateMoveButton();
         MapView.Refresh();
-        _playerWindow?.ShowEncounterPopup(encounter.Title, encounter.Description);
         UpdateStatus($"Столкновение «{encounter.Title}»: движение приостановлено.");
+
+        EnsurePlayerWindow(activateIfOpen: true);
+        var player = _playerWindow;
+        if (player is null)
+            return;
+
+        var title = encounter.Title;
+        var description = encounter.Description;
+        player.Dispatcher.BeginInvoke(() =>
+        {
+            player.Activate();
+            player.ShowEncounterPopup(title, description);
+        }, DispatcherPriority.ApplicationIdle);
     }
 
     protected override void OnClosed(EventArgs e)

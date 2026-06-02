@@ -8,7 +8,10 @@ public partial class ScrollPopupWindow : Window
     {
         InitializeComponent();
         if (owner is not null)
+        {
             Owner = owner;
+            WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        }
 
         TitleText.Text = string.IsNullOrWhiteSpace(title) ? "Свиток земель" : title;
         BodyText.Text = string.IsNullOrWhiteSpace(body) ? "Здесь пока нет описания." : body;

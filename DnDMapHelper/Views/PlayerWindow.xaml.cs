@@ -113,9 +113,7 @@ public partial class PlayerWindow : Window
 
     public void ShowEncounterPopup(string title, string description)
     {
-        if (!IsLoaded)
-            return;
-
+        Activate();
         var popup = new ScrollPopupWindow(title, description, this);
         popup.ShowDialog();
     }
