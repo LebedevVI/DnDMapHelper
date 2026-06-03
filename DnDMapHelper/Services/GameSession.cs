@@ -17,6 +17,7 @@ public sealed class GameSession : INotifyPropertyChanged
     private Point? _partyPosition;
     private Guid? _selectedTargetId;
     private List<Point> _draftPath = [];
+    private List<Point> _draftRegionOutline = [];
     private bool _isPartyMoving;
     private double _partyPathProgress;
     private Point? _partyDisplayPosition;
@@ -141,6 +142,20 @@ public sealed class GameSession : INotifyPropertyChanged
     }
 
     public bool HasDraftPath => DraftPath.Count >= 2;
+
+    /// <summary>Черновик контура области при рисовании на экране мастера.</summary>
+    public IReadOnlyList<Point> DraftRegionOutline
+    {
+        get => _draftRegionOutline;
+        set
+        {
+            _draftRegionOutline = value.ToList();
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasDraftRegionOutline));
+        }
+    }
+
+    public bool HasDraftRegionOutline => DraftRegionOutline.Count >= 2;
 
     public int SelectedRouteIndex
     {
@@ -274,6 +289,7 @@ public sealed class GameSession : INotifyPropertyChanged
         Routes.Add(route);
         SelectedRouteIndex = Routes.Count - 1;
         DraftPath = [];
+        DraftRegionOutline = [];
         NotifyRoutesChanged();
     }
 
@@ -295,6 +311,7 @@ public sealed class GameSession : INotifyPropertyChanged
     {
         Routes.Clear();
         DraftPath = [];
+        DraftRegionOutline = [];
         SelectedRouteIndex = -1;
         _activeMovementPath = null;
         _pendingEncounterId = null;

@@ -4,7 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
+using DnDMapHelper.Helpers;
 using DnDMapHelper.Models;
 using DnDMapHelper.Services;
 using Microsoft.Win32;
@@ -17,9 +17,8 @@ public partial class MasterWindow : Window
     private MasterTool _currentTool = MasterTool.Navigate;
     private bool _isDrawingPath;
     private bool _isDrawingRegion;
-    private Point _regionStartCanvas;
     private readonly List<Point> _pathPointsImage = [];
-    private Rectangle? _regionPreview;
+    private readonly List<Point> _regionPointsImage = [];
     private PlayerWindow? _playerWindow;
     private readonly PartyMovementController _movement = PartyMovementController.Current;
 
@@ -297,7 +296,7 @@ public partial class MasterWindow : Window
                 break;
 
             case MasterTool.DrawRegion:
-                StartRegionDrawing(e.GetPosition(MapView.OverlayCanvasElement));
+                StartRegionDrawing(imagePoint);
                 MapView.CaptureMouse();
                 e.Handled = true;
                 break;
@@ -538,10 +537,19 @@ public partial class MasterWindow : Window
                 MapView.Refresh();
             }
         }
-        else if (_isDrawingRegion && e.LeftButton == MouseButtonState.Pressed && _regionPreview is not null)
+        else if (_isDrawingRegion && e.LeftButton == MouseButtonState.Pressed)
         {
-            var current = e.GetPosition(MapView.OverlayCanvasElement);
-            UpdateRegionPreview(_regionStartCanvas, current);
+            var imagePoint = MapView.CanvasToImage(MapView.GetViewPoint(e));
+            if (!IsPointOnMap(imagePoint))
+                return;
+
+            if (_regionPointsImage.Count == 0 ||
+                Distance(_regionPointsImage[^1], imagePoint) > 4)
+            {
+                _regionPointsImage.Add(imagePoint);
+                _session.DraftRegionOutline = _regionPointsImage;
+                MapView.Refresh();
+            }
         }
     }
 
@@ -555,7 +563,7 @@ public partial class MasterWindow : Window
         }
         else if (_isDrawingRegion)
         {
-            FinishRegionDrawing(e.GetPosition(MapView.OverlayCanvasElement));
+            FinishRegionDrawing();
             MapView.ReleaseMouseCapture();
             e.Handled = true;
         }
@@ -666,65 +674,36 @@ public partial class MasterWindow : Window
         return result;
     }
 
-    private void StartRegionDrawing(Point canvasStart)
+    private void StartRegionDrawing(Point imagePoint)
     {
         _isDrawingRegion = true;
-        _regionStartCanvas = canvasStart;
-        CreateRegionPreview(canvasStart);
+        _regionPointsImage.Clear();
+        _regionPointsImage.Add(imagePoint);
+        _session.DraftRegionOutline = _regionPointsImage;
+        MapView.Refresh();
     }
 
-    private void CreateRegionPreview(Point canvasStart)
-    {
-        _regionPreview = new Rectangle
-        {
-            Stroke = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(139, 105, 20)),
-            StrokeThickness = 2,
-            StrokeDashArray = [4, 2],
-            Fill = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(50, 201, 168, 108))
-        };
-        Canvas.SetLeft(_regionPreview, canvasStart.X);
-        Canvas.SetTop(_regionPreview, canvasStart.Y);
-        MapView.OverlayCanvasElement.Children.Add(_regionPreview);
-    }
-
-    private void UpdateRegionPreview(Point start, Point end)
-    {
-        if (_regionPreview is null)
-            return;
-
-        var x = Math.Min(start.X, end.X);
-        var y = Math.Min(start.Y, end.Y);
-        var w = Math.Abs(end.X - start.X);
-        var h = Math.Abs(end.Y - start.Y);
-        Canvas.SetLeft(_regionPreview, x);
-        Canvas.SetTop(_regionPreview, y);
-        _regionPreview.Width = Math.Max(1, w);
-        _regionPreview.Height = Math.Max(1, h);
-    }
-
-    private void FinishRegionDrawing(Point canvasEnd)
+    private void FinishRegionDrawing()
     {
         _isDrawingRegion = false;
-        if (_regionPreview is not null)
-        {
-            MapView.OverlayCanvasElement.Children.Remove(_regionPreview);
-            _regionPreview = null;
-        }
+        _session.DraftRegionOutline = [];
 
-        var x = Math.Min(_regionStartCanvas.X, canvasEnd.X);
-        var y = Math.Min(_regionStartCanvas.Y, canvasEnd.Y);
-        var w = Math.Abs(canvasEnd.X - _regionStartCanvas.X);
-        var h = Math.Abs(canvasEnd.Y - _regionStartCanvas.Y);
-
-        if (w < 10 || h < 10)
+        if (_regionPointsImage.Count < 2)
         {
-            UpdateStatus("Область слишком мала — выделите больший прямоугольник.");
+            _regionPointsImage.Clear();
             MapView.Refresh();
             return;
         }
 
-        var canvasRect = new Rect(x, y, w, h);
-        var imageRect = MapView.ContentToImage(canvasRect);
+        var outline = RegionGeometryHelper.PrepareOutline(_regionPointsImage);
+        _regionPointsImage.Clear();
+
+        if (outline is null)
+        {
+            UpdateStatus("Область слишком мала — обведите больший контур.");
+            MapView.Refresh();
+            return;
+        }
 
         var dialog = new RegionTextDialog("Описание земель", string.Empty) { Owner = this };
         if (dialog.ShowDialog() != true)
@@ -735,7 +714,7 @@ public partial class MasterWindow : Window
 
         var newRegion = new MapRegion
         {
-            Bounds = imageRect,
+            Outline = outline,
             Title = dialog.RegionTitle,
             Description = dialog.RegionDescription
         };
@@ -749,11 +728,8 @@ public partial class MasterWindow : Window
     {
         _isDrawingPath = false;
         _isDrawingRegion = false;
-        if (_regionPreview is not null)
-        {
-            MapView.OverlayCanvasElement.Children.Remove(_regionPreview);
-            _regionPreview = null;
-        }
+        _regionPointsImage.Clear();
+        _session.DraftRegionOutline = [];
     }
 
     private bool IsPointOnMap(Point imagePoint)
@@ -793,7 +769,7 @@ public partial class MasterWindow : Window
             MasterTool.TargetMarker => "Кликните на карте — метка цели и окно для подписи (например, «Логово врага»).",
             MasterTool.EncounterMarker => "Кликните на карте — создайте боевое столкновение (название и описание).",
             MasterTool.DrawPath => "Рисуйте маршрут к выбранной цели. Каждый новый начинается с конца предыдущего. Очередь — справа.",
-            MasterTool.DrawRegion => "Выделите прямоугольник — откроется окно для заголовка и текста справки.",
+            MasterTool.DrawRegion => "Зажмите кнопку и обведите область на карте — контур сгладится. Отпустите — введите заголовок и текст для свитка.",
             _ => string.Empty
         };
     }

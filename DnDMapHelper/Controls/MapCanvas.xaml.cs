@@ -179,6 +179,7 @@ public partial class MapCanvas : UserControl
             or nameof(GameSession.Regions)
             or nameof(GameSession.Encounters)
             or nameof(GameSession.DraftPath)
+            or nameof(GameSession.DraftRegionOutline)
             or nameof(GameSession.Routes)
             or nameof(GameSession.SelectedRouteIndex)
             or nameof(GameSession.SelectedTargetId)
@@ -327,41 +328,59 @@ public partial class MapCanvas : UserControl
 
     private void DrawRegion(MapRegion region)
     {
-        var rect = ContentRectFromImage(region.Bounds);
-        var isSelected = !IsPlayerMode && _session.SelectedRegionId == region.Id;
-        var fill = HighlightRegions
-            ? new SolidColorBrush(Color.FromArgb((byte)(isSelected ? 90 : 60), 201, 168, 108))
-            : new SolidColorBrush(Color.FromArgb(25, 201, 168, 108));
+        if (region.Outline.Count < 3)
+            return;
 
-        var shape = new Rectangle
+        DrawRegionOutline(region.Outline, isSelected: !IsPlayerMode && _session.SelectedRegionId == region.Id,
+            title: HighlightRegions ? region.Title : null);
+    }
+
+    private void DrawRegionOutline(
+        IReadOnlyList<Point> imageOutline,
+        bool isSelected = false,
+        bool isDraft = false,
+        string? title = null)
+    {
+        if (imageOutline.Count < 2)
+            return;
+
+        var canvasPoints = imageOutline.Select(ImageToContent).ToList();
+        var geometry = canvasPoints.Count >= 3
+            ? RegionGeometryHelper.CreateClosedSmoothPath(canvasPoints)
+            : PathGeometryHelper.CreateSmoothPath(canvasPoints);
+
+        var fill = isDraft
+            ? new SolidColorBrush(Color.FromArgb(45, 201, 168, 108))
+            : HighlightRegions
+                ? new SolidColorBrush(Color.FromArgb((byte)(isSelected ? 90 : 60), 201, 168, 108))
+                : new SolidColorBrush(Color.FromArgb(25, 201, 168, 108));
+
+        var shape = new Path
         {
-            Width = Math.Max(1, rect.Width),
-            Height = Math.Max(1, rect.Height),
+            Data = geometry,
             Fill = fill,
             Stroke = new SolidColorBrush(isSelected
                 ? Color.FromRgb(139, 37, 0)
                 : Color.FromRgb(139, 105, 20)),
-            StrokeThickness = isSelected ? 3 : HighlightRegions ? 2.5 : 1.5,
-            StrokeDashArray = isSelected ? null : HighlightRegions ? null : [4, 3],
-            Tag = region
+            StrokeThickness = isSelected ? 3 : HighlightRegions || isDraft ? 2.5 : 1.5,
+            StrokeDashArray = isSelected || HighlightRegions || isDraft ? null : new DoubleCollection([4, 3])
         };
-
-        Canvas.SetLeft(shape, rect.X);
-        Canvas.SetTop(shape, rect.Y);
         OverlayCanvas.Children.Add(shape);
 
-        if (HighlightRegions && !string.IsNullOrWhiteSpace(region.Title))
+        if (!string.IsNullOrWhiteSpace(title) && imageOutline.Count >= 1)
         {
+            var bounds = RegionGeometryHelper.GetBounds(imageOutline);
+            var topLeft = ImageToContent(bounds.TopLeft);
             var label = new TextBlock
             {
-                Text = region.Title,
+                Text = title,
                 FontFamily = new FontFamily("Georgia"),
                 FontSize = 11,
                 Foreground = new SolidColorBrush(Color.FromRgb(61, 41, 20)),
                 Background = new SolidColorBrush(Color.FromArgb(180, 244, 232, 200))
             };
-            Canvas.SetLeft(label, rect.X + 4);
-            Canvas.SetTop(label, rect.Y + 4);
+            Canvas.SetLeft(label, topLeft.X + 4);
+            Canvas.SetTop(label, topLeft.Y + 4);
             OverlayCanvas.Children.Add(label);
         }
     }
@@ -396,6 +415,9 @@ public partial class MapCanvas : UserControl
 
         if (_session.DraftPath.Count >= 2)
             DrawRoutePath(_session.DraftPath, isHighlighted: true, isActive: false, order: null, isDraft: true);
+
+        if (!IsPlayerMode && _session.DraftRegionOutline.Count >= 2)
+            DrawRegionOutline(_session.DraftRegionOutline, isDraft: true);
     }
 
     private void DrawRoutePath(
@@ -595,8 +617,10 @@ public partial class MapCanvas : UserControl
         var imagePoint = CanvasToImage(viewPoint);
         for (var i = _session.Regions.Count - 1; i >= 0; i--)
         {
-            if (_session.Regions[i].Bounds.Contains(imagePoint))
-                return _session.Regions[i];
+            var region = _session.Regions[i];
+            if (region.Outline.Count >= 3 &&
+                RegionGeometryHelper.ContainsPoint(region.Outline, imagePoint))
+                return region;
         }
 
         return null;
