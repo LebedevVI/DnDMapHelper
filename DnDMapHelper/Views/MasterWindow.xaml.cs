@@ -532,10 +532,10 @@ public partial class MasterWindow : Window
                 return;
 
             if (_pathPointsImage.Count == 0 ||
-                Distance(_pathPointsImage[^1], imagePoint) > 4)
+                Distance(_pathPointsImage[^1], imagePoint) > PathGeometryHelper.DefaultCaptureMinDistance)
             {
                 _pathPointsImage.Add(imagePoint);
-                _session.DraftPath = BuildPathWithEndpoints(_pathPointsImage);
+                _session.DraftPath = BuildSmoothedPathWithEndpoints(_pathPointsImage);
                 MapView.Refresh();
             }
         }
@@ -589,7 +589,7 @@ public partial class MasterWindow : Window
         _pathPointsImage.Clear();
         _pathPointsImage.Add(_session.GetNextRouteStartPoint());
         _pathPointsImage.Add(imagePoint);
-        _session.DraftPath = BuildPathWithEndpoints(_pathPointsImage);
+        _session.DraftPath = BuildSmoothedPathWithEndpoints(_pathPointsImage);
         MapView.Refresh();
     }
 
@@ -605,7 +605,7 @@ public partial class MasterWindow : Window
         }
 
         _pathPointsImage[^1] = _session.SelectedTarget!.Position;
-        var points = BuildPathWithEndpoints(_pathPointsImage);
+        var points = BuildSmoothedPathWithEndpoints(_pathPointsImage);
         if (points.Count < 2)
         {
             MapView.Refresh();
@@ -663,6 +663,9 @@ public partial class MasterWindow : Window
         var next = _session.Targets[(index + 1) % _session.Targets.Count];
         _session.SelectTarget(next.Id);
     }
+
+    private List<Point> BuildSmoothedPathWithEndpoints(List<Point> stroke) =>
+        BuildPathWithEndpoints(PathGeometryHelper.PrepareOpenPolyline(stroke));
 
     private List<Point> BuildPathWithEndpoints(List<Point> stroke)
     {
@@ -775,7 +778,7 @@ public partial class MasterWindow : Window
             MasterTool.PartyMarker => "Кликните на карте, чтобы поставить метку партии (синий щит).",
             MasterTool.TargetMarker => "Кликните на карте — метка цели и окно для подписи (например, «Логово врага»).",
             MasterTool.EncounterMarker => "Кликните на карте — создайте боевое столкновение (название и описание).",
-            MasterTool.DrawPath => "Рисуйте маршрут к выбранной цели. Каждый новый начинается с конца предыдущего. Очередь — справа.",
+            MasterTool.DrawPath => "Зажмите кнопку и проведите маршрут к выбранной цели — линия сгладится. Отпустите — маршрут попадёт в очередь справа.",
             MasterTool.DrawRegion => "Зажмите кнопку и обведите область — контур сгладится. Отпустите: заголовок, текст свитка и при желании «Показывать игрокам».",
             _ => string.Empty
         };

@@ -5,6 +5,29 @@ namespace DnDMapHelper.Helpers;
 
 public static class PathGeometryHelper
 {
+    public const double DefaultCaptureMinDistance = 10;
+    public const double DefaultSimplifyTolerance = 16;
+
+    /// <summary>Прореживает и упрощает открытую ломаную — убирает дрожание мыши.</summary>
+    public static List<Point> PrepareOpenPolyline(
+        IReadOnlyList<Point> rawPoints,
+        double captureMinDistance = DefaultCaptureMinDistance,
+        double simplifyTolerance = DefaultSimplifyTolerance)
+    {
+        if (rawPoints.Count == 0)
+            return [];
+
+        if (rawPoints.Count == 1)
+            return [rawPoints[0]];
+
+        var thinned = ThinByDistance(rawPoints, captureMinDistance);
+        if (thinned.Count < 2)
+            thinned = [rawPoints[0], rawPoints[^1]];
+
+        var simplified = SimplifyPolyline(thinned, simplifyTolerance);
+        return simplified.Count >= 2 ? simplified : thinned;
+    }
+
     public static double GetTotalLength(IList<Point> points)
     {
         if (points.Count < 2)
@@ -143,6 +166,89 @@ public static class PathGeometryHelper
         var total = GetTotalLength(flat);
         var distance = total * Math.Clamp(easedProgress, 0, 1);
         return GetPointAtDistance(flat, distance);
+    }
+
+    private static List<Point> ThinByDistance(IReadOnlyList<Point> points, double minDistance)
+    {
+        var result = new List<Point> { points[0] };
+        var minDistSq = minDistance * minDistance;
+
+        for (var i = 1; i < points.Count; i++)
+        {
+            var last = result[^1];
+            var dx = points[i].X - last.X;
+            var dy = points[i].Y - last.Y;
+            if (dx * dx + dy * dy >= minDistSq)
+                result.Add(points[i]);
+        }
+
+        var end = points[^1];
+        if (result.Count == 1 || Distance(result[^1], end) > 1)
+            result.Add(end);
+
+        return result;
+    }
+
+    private static List<Point> SimplifyPolyline(IReadOnlyList<Point> points, double tolerance)
+    {
+        if (points.Count <= 2)
+            return points.ToList();
+
+        var keep = new bool[points.Count];
+        keep[0] = true;
+        keep[^1] = true;
+        SimplifyRange(points, 0, points.Count - 1, tolerance, keep);
+
+        var result = new List<Point>();
+        for (var i = 0; i < points.Count; i++)
+        {
+            if (keep[i])
+                result.Add(points[i]);
+        }
+
+        return result;
+    }
+
+    private static void SimplifyRange(IReadOnlyList<Point> points, int start, int end, double tolerance, bool[] keep)
+    {
+        if (end <= start + 1)
+            return;
+
+        var lineStart = points[start];
+        var lineEnd = points[end];
+        var maxDistance = 0.0;
+        var index = start;
+
+        for (var i = start + 1; i < end; i++)
+        {
+            var distance = PerpendicularDistance(points[i], lineStart, lineEnd);
+            if (distance <= maxDistance)
+                continue;
+
+            maxDistance = distance;
+            index = i;
+        }
+
+        if (maxDistance <= tolerance)
+            return;
+
+        keep[index] = true;
+        SimplifyRange(points, start, index, tolerance, keep);
+        SimplifyRange(points, index, end, tolerance, keep);
+    }
+
+    private static double PerpendicularDistance(Point point, Point lineStart, Point lineEnd)
+    {
+        var dx = lineEnd.X - lineStart.X;
+        var dy = lineEnd.Y - lineStart.Y;
+        if (Math.Abs(dx) < 0.001 && Math.Abs(dy) < 0.001)
+            return Distance(point, lineStart);
+
+        var t = ((point.X - lineStart.X) * dx + (point.Y - lineStart.Y) * dy) / (dx * dx + dy * dy);
+        t = Math.Clamp(t, 0, 1);
+        var projX = lineStart.X + t * dx;
+        var projY = lineStart.Y + t * dy;
+        return Distance(point, new Point(projX, projY));
     }
 
     private static double Distance(Point a, Point b) =>
