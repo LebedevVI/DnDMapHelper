@@ -8,6 +8,7 @@ public sealed class MapRegion
     public List<Point> Outline { get; set; } = [];
     public string Description { get; set; } = string.Empty;
     public string Title { get; set; } = "Описание земель";
+    public bool VisibleToPlayers { get; set; }
 
     public Rect Bounds => Helpers.RegionGeometryHelper.GetBounds(Outline);
 }

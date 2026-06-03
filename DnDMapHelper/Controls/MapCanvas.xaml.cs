@@ -302,9 +302,9 @@ public partial class MapCanvas : UserControl
             if (_session.MapImage is null)
                 return;
 
-            if (ShowRegions)
+            foreach (var region in _session.Regions)
             {
-                foreach (var region in _session.Regions)
+                if (ShouldDrawRegion(region))
                     DrawRegion(region);
             }
 
@@ -324,6 +324,14 @@ public partial class MapCanvas : UserControl
     {
         var scale = ContentScale;
         return new Point(imagePoint.X * scale, imagePoint.Y * scale);
+    }
+
+    private bool ShouldDrawRegion(MapRegion region)
+    {
+        if (IsPlayerMode)
+            return region.VisibleToPlayers;
+
+        return ShowRegions;
     }
 
     private void DrawRegion(MapRegion region)

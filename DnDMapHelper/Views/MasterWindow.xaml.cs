@@ -316,7 +316,7 @@ public partial class MasterWindow : Window
                 {
                     _session.SelectRegion(hitRegion.Id);
                     MapView.Refresh();
-                    UpdateStatus($"Область: «{hitRegion.Title}». Двойной клик — текст, Delete — удалить.");
+                    UpdateStatus($"Область: «{hitRegion.Title}». Двойной клик — текст и «Показывать игрокам»; Delete — удалить.");
                     break;
                 }
 
@@ -364,12 +364,14 @@ public partial class MasterWindow : Window
 
     private void EditRegion(MapRegion region)
     {
-        var dialog = new RegionTextDialog(region.Title, region.Description) { Owner = this };
+        var dialog = new RegionTextDialog(region.Title, region.Description, region.VisibleToPlayers,
+            showPlayerVisibilityOption: true) { Owner = this };
         if (dialog.ShowDialog() != true)
             return;
 
         region.Title = dialog.RegionTitle;
         region.Description = dialog.RegionDescription;
+        region.VisibleToPlayers = dialog.VisibleToPlayers;
         _session.SelectRegion(region.Id);
         _session.NotifyRegionsChanged();
         MapView.Refresh();
@@ -705,7 +707,10 @@ public partial class MasterWindow : Window
             return;
         }
 
-        var dialog = new RegionTextDialog("Описание земель", string.Empty) { Owner = this };
+        var dialog = new RegionTextDialog("Описание земель", string.Empty, showPlayerVisibilityOption: true)
+        {
+            Owner = this
+        };
         if (dialog.ShowDialog() != true)
         {
             MapView.Refresh();
@@ -716,10 +721,12 @@ public partial class MasterWindow : Window
         {
             Outline = outline,
             Title = dialog.RegionTitle,
-            Description = dialog.RegionDescription
+            Description = dialog.RegionDescription,
+            VisibleToPlayers = dialog.VisibleToPlayers
         };
         _session.Regions.Add(newRegion);
         _session.SelectRegion(newRegion.Id);
+        _session.NotifyRegionsChanged();
         MapView.Refresh();
         UpdateStatus("Область с описанием добавлена.");
     }
@@ -769,7 +776,7 @@ public partial class MasterWindow : Window
             MasterTool.TargetMarker => "Кликните на карте — метка цели и окно для подписи (например, «Логово врага»).",
             MasterTool.EncounterMarker => "Кликните на карте — создайте боевое столкновение (название и описание).",
             MasterTool.DrawPath => "Рисуйте маршрут к выбранной цели. Каждый новый начинается с конца предыдущего. Очередь — справа.",
-            MasterTool.DrawRegion => "Зажмите кнопку и обведите область на карте — контур сгладится. Отпустите — введите заголовок и текст для свитка.",
+            MasterTool.DrawRegion => "Зажмите кнопку и обведите область — контур сгладится. Отпустите: заголовок, текст свитка и при желании «Показывать игрокам».",
             _ => string.Empty
         };
     }

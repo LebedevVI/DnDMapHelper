@@ -4,16 +4,28 @@ namespace DnDMapHelper.Views;
 
 public partial class RegionTextDialog : Window
 {
-    public RegionTextDialog(string title, string description)
+    public RegionTextDialog(
+        string title,
+        string description,
+        bool visibleToPlayers = false,
+        bool showPlayerVisibilityOption = false)
     {
         InitializeComponent();
         TitleBox.Text = title;
         DescriptionBox.Text = description;
+
+        if (showPlayerVisibilityOption)
+        {
+            ShowToPlayersCheckBox.Visibility = Visibility.Visible;
+            ShowToPlayersCheckBox.IsChecked = visibleToPlayers;
+        }
+
         Loaded += OnLoaded;
     }
 
     public string RegionTitle => TitleBox.Text.Trim();
     public string RegionDescription => DescriptionBox.Text.Trim();
+    public bool VisibleToPlayers => ShowToPlayersCheckBox.IsChecked == true;
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
