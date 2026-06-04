@@ -328,7 +328,7 @@ public partial class MapCanvas : UserControl
 
     private bool ShouldDrawRegion(MapRegion region)
     {
-        if (IsPlayerMode)
+        if (GetValue(IsPlayerModeProperty) is true)
             return region.VisibleToPlayers;
 
         return ShowRegions;
@@ -339,15 +339,21 @@ public partial class MapCanvas : UserControl
         if (region.Outline.Count < 3)
             return;
 
-        DrawRegionOutline(region.Outline, isSelected: !IsPlayerMode && _session.SelectedRegionId == region.Id,
-            title: HighlightRegions ? region.Title : null);
+        var forPlayerDisplay = IsPlayerMode && region.VisibleToPlayers;
+        DrawRegionOutline(
+            region.Outline,
+            isSelected: !IsPlayerMode && _session.SelectedRegionId == region.Id,
+            isDraft: false,
+            title: HighlightRegions || forPlayerDisplay ? region.Title : null,
+            forPlayerDisplay: forPlayerDisplay);
     }
 
     private void DrawRegionOutline(
         IReadOnlyList<Point> imageOutline,
         bool isSelected = false,
         bool isDraft = false,
-        string? title = null)
+        string? title = null,
+        bool forPlayerDisplay = false)
     {
         if (imageOutline.Count < 2)
             return;
@@ -359,8 +365,8 @@ public partial class MapCanvas : UserControl
 
         var fill = isDraft
             ? new SolidColorBrush(Color.FromArgb(45, 201, 168, 108))
-            : HighlightRegions
-                ? new SolidColorBrush(Color.FromArgb((byte)(isSelected ? 90 : 60), 201, 168, 108))
+            : forPlayerDisplay || HighlightRegions
+                ? new SolidColorBrush(Color.FromArgb((byte)(isSelected ? 90 : forPlayerDisplay ? 75 : 60), 201, 168, 108))
                 : new SolidColorBrush(Color.FromArgb(25, 201, 168, 108));
 
         var shape = new Path
@@ -369,9 +375,13 @@ public partial class MapCanvas : UserControl
             Fill = fill,
             Stroke = new SolidColorBrush(isSelected
                 ? Color.FromRgb(139, 37, 0)
-                : Color.FromRgb(139, 105, 20)),
-            StrokeThickness = isSelected ? 3 : HighlightRegions || isDraft ? 2.5 : 1.5,
-            StrokeDashArray = isSelected || HighlightRegions || isDraft ? null : new DoubleCollection([4, 3])
+                : forPlayerDisplay
+                    ? Color.FromRgb(160, 120, 35)
+                    : Color.FromRgb(139, 105, 20)),
+            StrokeThickness = isSelected ? 3 : forPlayerDisplay || HighlightRegions || isDraft ? 2.5 : 1.5,
+            StrokeDashArray = isSelected || HighlightRegions || isDraft || forPlayerDisplay
+                ? null
+                : new DoubleCollection([4, 3])
         };
         OverlayCanvas.Children.Add(shape);
 

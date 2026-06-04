@@ -10,7 +10,6 @@
     <Grid>
         <controls:MapCanvas x:Name="MapView"
                             IsPlayerMode="True"
-                            ShowRegions="False"
                             PreviewMouseLeftButtonDown="MapView_MouseLeftButtonDown"/>
 
         <Border VerticalAlignment="Top" HorizontalAlignment="Right"

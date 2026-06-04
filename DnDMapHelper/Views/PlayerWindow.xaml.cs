@@ -17,6 +17,7 @@ public partial class PlayerWindow : Window
     public PlayerWindow()
     {
         InitializeComponent();
+        MapView.IsPlayerMode = true;
 
         _movement.MovementFrame += OnMovementFrame;
         _session.PropertyChanged += OnSessionPropertyChanged;

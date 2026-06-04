@@ -375,6 +375,7 @@ public partial class MasterWindow : Window
         _session.SelectRegion(region.Id);
         _session.NotifyRegionsChanged();
         MapView.Refresh();
+        _playerWindow?.RefreshMap();
         UpdateStatus($"Область обновлена: «{region.Title}».");
     }
 
@@ -731,6 +732,7 @@ public partial class MasterWindow : Window
         _session.SelectRegion(newRegion.Id);
         _session.NotifyRegionsChanged();
         MapView.Refresh();
+        _playerWindow?.RefreshMap();
         UpdateStatus("Область с описанием добавлена.");
     }
 

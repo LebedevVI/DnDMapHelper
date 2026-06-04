@@ -30,6 +30,7 @@ public sealed class GameSession : INotifyPropertyChanged
     public GameSession()
     {
         Routes.CollectionChanged += OnRoutesCollectionChanged;
+        Regions.CollectionChanged += (_, _) => NotifyRegionsChanged();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
