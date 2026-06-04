@@ -7,70 +7,156 @@ namespace DnDMapHelper.Helpers;
 
 public static class HandDrawnMarkerHelper
 {
-    public static Path CreateTargetCross(Point center, double size, bool isSelected, Guid targetId)
+    private static readonly SolidColorBrush OutlineStroke = new(Color.FromRgb(80, 66, 49));
+    private static readonly SolidColorBrush GoldStroke = new(Color.FromRgb(192, 145, 55));
+    private static readonly SolidColorBrush GoldStrokeBright = new(Color.FromRgb(255, 210, 90));
+    private static readonly SolidColorBrush ParchmentFill = new(Color.FromRgb(244, 228, 198));
+
+    public static Canvas CreateTargetMarker(Point center, bool isSelected, Guid targetId)
     {
         var hash = targetId.GetHashCode();
-        var r1 = PseudoRandom(hash, 1);
-        var r2 = PseudoRandom(hash, 2);
-        var r3 = PseudoRandom(hash, 3);
-        var r4 = PseudoRandom(hash, 4);
+        var wobble = (PseudoRandom(hash, 1) - 0.5) * 6;
 
-        var half = size * 0.5;
-        var wobble = size * 0.1;
+        var root = new Canvas { IsHitTestVisible = false };
+        root.RenderTransform = new RotateTransform(wobble, center.X, center.Y);
 
-        static double Off(double value, double amount, double t) => value + (t - 0.5) * 2 * amount;
-
-        var tl = new Point(Off(center.X - half, wobble, r1), Off(center.Y - half, wobble, r2));
-        var br = new Point(Off(center.X + half, wobble, r3), Off(center.Y + half, wobble, r4));
-        var tr = new Point(Off(center.X + half, wobble, r2), Off(center.Y - half, wobble, r1));
-        var bl = new Point(Off(center.X - half, wobble, r4), Off(center.Y + half, wobble, r3));
-
-        var mid1 = new Point(
-            Off((tl.X + br.X) / 2, wobble * 0.6, r3),
-            Off((tl.Y + br.Y) / 2, wobble * 0.6, r1));
-        var mid2 = new Point(
-            Off((tr.X + bl.X) / 2, wobble * 0.6, r2),
-            Off((tr.Y + bl.Y) / 2, wobble * 0.6, r4));
-
-        var geometry = new PathGeometry();
-
-        var slash1 = new PathFigure { StartPoint = tl, IsFilled = false };
-        slash1.Segments.Add(new QuadraticBezierSegment(mid1, br, true));
-        geometry.Figures.Add(slash1);
-
-        var slash2 = new PathFigure { StartPoint = tr, IsFilled = false };
-        slash2.Segments.Add(new QuadraticBezierSegment(mid2, bl, true));
-        geometry.Figures.Add(slash2);
-
-        var strokeColor = isSelected
-            ? Color.FromRgb(190, 45, 15)
-            : Color.FromRgb(110, 35, 12);
-
-        return new Path
+        var ringSize = isSelected ? 30 : 26;
+        var outerRing = new Ellipse
         {
-            Data = geometry,
-            Stroke = new SolidColorBrush(strokeColor),
-            StrokeThickness = isSelected ? 3.2 : 2.6,
-            StrokeStartLineCap = PenLineCap.Round,
-            StrokeEndLineCap = PenLineCap.Round,
-            StrokeLineJoin = PenLineJoin.Round,
-            SnapsToDevicePixels = false,
-            RenderTransform = new RotateTransform(
-                Off(0, 7, r1),
-                center.X,
-                center.Y)
+            Width = ringSize,
+            Height = ringSize,
+            Fill = new SolidColorBrush(Color.FromArgb(225, 248, 236, 210)),
+            Stroke = isSelected ? GoldStrokeBright : GoldStroke,
+            StrokeThickness = isSelected ? 2.6 : 2.1
         };
+        PlaceCentered(root, outerRing, center, ringSize, ringSize);
+
+        var innerRingSize = ringSize - 7;
+        var innerRing = new Ellipse
+        {
+            Width = innerRingSize,
+            Height = innerRingSize,
+            Fill = Brushes.Transparent,
+            Stroke = OutlineStroke,
+            StrokeThickness = 1.1,
+            Opacity = 0.65
+        };
+        PlaceCentered(root, innerRing, center, innerRingSize, innerRingSize);
+
+        var barFill = new SolidColorBrush(isSelected ? Color.FromRgb(186, 42, 18) : Color.FromRgb(148, 36, 16));
+        AddCrossBar(root, center, 45, barFill, OutlineStroke, isSelected);
+        AddCrossBar(root, center, -45, barFill, OutlineStroke, isSelected);
+
+        var jewelSize = isSelected ? 7.5 : 6.5;
+        var jewel = new Ellipse
+        {
+            Width = jewelSize,
+            Height = jewelSize,
+            Fill = new SolidColorBrush(isSelected ? Color.FromRgb(255, 220, 110) : Color.FromRgb(220, 170, 75)),
+            Stroke = OutlineStroke,
+            StrokeThickness = 1.1
+        };
+        PlaceCentered(root, jewel, center, jewelSize, jewelSize);
+
+        AddCardinalTicks(root, center, ringSize * 0.5 + 1, OutlineStroke);
+
+        return root;
     }
 
-    private static double PseudoRandom(int seed, int channel) =>
-        ((seed * 1103515245 + channel * 12345) & 0x7FFFFFFF) / (double)0x7FFFFFFF;
+    public static Canvas CreatePartyShield(Point center, bool isSelected)
+    {
+        var root = new Canvas { IsHitTestVisible = false };
+
+        var glowSize = isSelected ? 38 : 34;
+        var glow = new Ellipse
+        {
+            Width = glowSize,
+            Height = glowSize,
+            Fill = new SolidColorBrush(Color.FromArgb(isSelected ? (byte)95 : (byte)70, 255, 215, 130)),
+            Stroke = isSelected ? GoldStrokeBright : GoldStroke,
+            StrokeThickness = isSelected ? 2.2 : 1.8
+        };
+        PlaceCentered(root, glow, center, glowSize, glowSize);
+
+        var shield = new Polygon
+        {
+            Points = new PointCollection
+            {
+                new(center.X, center.Y - 16),
+                new(center.X + 12, center.Y - 10),
+                new(center.X + 14, center.Y + 1),
+                new(center.X + 10, center.Y + 14),
+                new(center.X, center.Y + 18),
+                new(center.X - 10, center.Y + 14),
+                new(center.X - 14, center.Y + 1),
+                new(center.X - 12, center.Y - 10)
+            },
+            Fill = new LinearGradientBrush(
+                isSelected ? Color.FromRgb(92, 138, 228) : Color.FromRgb(58, 98, 196),
+                isSelected ? Color.FromRgb(32, 52, 128) : Color.FromRgb(22, 38, 98),
+                new Point(center.X, center.Y - 16),
+                new Point(center.X, center.Y + 18)),
+            Stroke = isSelected ? GoldStrokeBright : GoldStroke,
+            StrokeThickness = isSelected ? 2.6 : 2.1,
+            StrokeLineJoin = PenLineJoin.Round
+        };
+        root.Children.Add(shield);
+
+        var inset = new Polygon
+        {
+            Points = new PointCollection
+            {
+                new(center.X, center.Y - 11),
+                new(center.X + 8, center.Y - 7),
+                new(center.X + 9, center.Y + 1),
+                new(center.X + 6, center.Y + 10),
+                new(center.X, center.Y + 12),
+                new(center.X - 6, center.Y + 10),
+                new(center.X - 9, center.Y + 1),
+                new(center.X - 8, center.Y - 7)
+            },
+            Fill = new SolidColorBrush(Color.FromArgb(55, 180, 205, 255)),
+            Stroke = OutlineStroke,
+            StrokeThickness = 1,
+            StrokeLineJoin = PenLineJoin.Round
+        };
+        root.Children.Add(inset);
+
+        var chevron = new Polygon
+        {
+            Points = new PointCollection
+            {
+                new(center.X, center.Y - 7),
+                new(center.X + 5, center.Y + 1),
+                new(center.X, center.Y - 1),
+                new(center.X - 5, center.Y + 1)
+            },
+            Fill = new SolidColorBrush(Color.FromArgb(210, 210, 228, 255)),
+            Stroke = OutlineStroke,
+            StrokeThickness = 1
+        };
+        root.Children.Add(chevron);
+
+        var bossSize = isSelected ? 6.5 : 5.5;
+        var boss = new Ellipse
+        {
+            Width = bossSize,
+            Height = bossSize,
+            Fill = GoldStroke,
+            Stroke = OutlineStroke,
+            StrokeThickness = 1
+        };
+        PlaceCentered(root, boss, new Point(center.X, center.Y + 8), bossSize, bossSize);
+
+        return root;
+    }
 
     public static Canvas CreateEncounterSwords(Point center, bool isSelected)
     {
         var bladeFill = new SolidColorBrush(Color.FromRgb(206, 192, 170));
-        var bladeStroke = new SolidColorBrush(Color.FromRgb(80, 66, 49));
+        var bladeStroke = OutlineStroke;
         var gripFill = new SolidColorBrush(isSelected ? Color.FromRgb(170, 48, 20) : Color.FromRgb(123, 83, 40));
-        var guardFill = new SolidColorBrush(Color.FromRgb(192, 145, 55));
+        var guardFill = GoldStroke;
 
         var root = new Canvas { IsHitTestVisible = false };
         root.Children.Add(CreateSword(center, -36, bladeFill, bladeStroke, gripFill, guardFill));
@@ -84,11 +170,62 @@ public static class HandDrawnMarkerHelper
             Stroke = bladeStroke,
             StrokeThickness = 1.1
         };
-        Canvas.SetLeft(jewel, center.X - jewel.Width / 2);
-        Canvas.SetTop(jewel, center.Y - jewel.Height / 2);
-        root.Children.Add(jewel);
+        PlaceCentered(root, jewel, center, jewel.Width, jewel.Height);
 
         return root;
+    }
+
+    private static void AddCrossBar(
+        Canvas parent,
+        Point center,
+        double angle,
+        Brush fill,
+        Brush stroke,
+        bool isSelected)
+    {
+        var bar = new Rectangle
+        {
+            Width = isSelected ? 5.2 : 4.4,
+            Height = isSelected ? 17 : 14.5,
+            RadiusX = 1.6,
+            RadiusY = 1.6,
+            Fill = fill,
+            Stroke = stroke,
+            StrokeThickness = 1
+        };
+        PlaceCentered(parent, bar, center, bar.Width, bar.Height);
+        bar.RenderTransform = new RotateTransform(angle, center.X, center.Y);
+    }
+
+    private static void AddCardinalTicks(Canvas parent, Point center, double radius, Brush stroke)
+    {
+        for (var i = 0; i < 4; i++)
+        {
+            var angle = i * 90;
+            var rad = angle * Math.PI / 180;
+            var outer = radius + 2.5;
+            var inner = radius - 1.5;
+            var line = new Line
+            {
+                X1 = center.X + Math.Cos(rad) * inner,
+                Y1 = center.Y + Math.Sin(rad) * inner,
+                X2 = center.X + Math.Cos(rad) * outer,
+                Y2 = center.Y + Math.Sin(rad) * outer,
+                Stroke = stroke,
+                StrokeThickness = 1.2,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap = PenLineCap.Round,
+                Opacity = 0.75
+            };
+            parent.Children.Add(line);
+        }
+    }
+
+    private static void PlaceCentered(Canvas parent, UIElement element, Point center, double width, double height)
+    {
+        Canvas.SetLeft(element, center.X - width / 2);
+        Canvas.SetTop(element, center.Y - height / 2);
+        parent.Children.Add(element);
     }
 
     private static Canvas CreateSword(
@@ -165,4 +302,7 @@ public static class HandDrawnMarkerHelper
         Canvas.SetTop(sword, center.Y);
         return sword;
     }
+
+    private static double PseudoRandom(int seed, int channel) =>
+        ((seed * 1103515245 + channel * 12345) & 0x7FFFFFFF) / (double)0x7FFFFFFF;
 }

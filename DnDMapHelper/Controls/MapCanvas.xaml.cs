@@ -514,9 +514,9 @@ public partial class MapCanvas : UserControl
             var isSelected = !IsPlayerMode && _session.SelectedTargetId == target.Id;
             var size = isSelected ? 28 : 22;
 
-            var cross = HandDrawnMarkerHelper.CreateTargetCross(center, size, isSelected, target.Id);
-            cross.Tag = target;
-            OverlayCanvas.Children.Add(cross);
+            var marker = HandDrawnMarkerHelper.CreateTargetMarker(center, isSelected, target.Id);
+            marker.Tag = target;
+            OverlayCanvas.Children.Add(marker);
 
             if (!string.IsNullOrWhiteSpace(target.Label))
             {
@@ -545,51 +545,7 @@ public partial class MapCanvas : UserControl
             return;
 
         var center = ImageToContent(pos.Value);
-        const double radius = 14;
-
-        var outer = new Ellipse
-        {
-            Width = radius * 2 + 6,
-            Height = radius * 2 + 6,
-            Fill = new SolidColorBrush(Color.FromArgb(80, 255, 215, 0)),
-            Stroke = new SolidColorBrush(Color.FromRgb(218, 165, 32)),
-            StrokeThickness = 2
-        };
-        Canvas.SetLeft(outer, center.X - radius - 3);
-        Canvas.SetTop(outer, center.Y - radius - 3);
-        OverlayCanvas.Children.Add(outer);
-
-        var marker = new Ellipse
-        {
-            Width = radius * 2,
-            Height = radius * 2,
-            Fill = new RadialGradientBrush(
-                Color.FromRgb(65, 105, 225),
-                Color.FromRgb(25, 25, 112))
-            {
-                GradientOrigin = new Point(0.3, 0.3),
-                Center = new Point(0.3, 0.3)
-            },
-            Stroke = Brushes.White,
-            StrokeThickness = 2
-        };
-        Canvas.SetLeft(marker, center.X - radius);
-        Canvas.SetTop(marker, center.Y - radius);
-        OverlayCanvas.Children.Add(marker);
-
-        var pin = new Polygon
-        {
-            Points = new PointCollection
-            {
-                new(center.X, center.Y - radius - 8),
-                new(center.X - 6, center.Y - radius + 2),
-                new(center.X + 6, center.Y - radius + 2)
-            },
-            Fill = new SolidColorBrush(Color.FromRgb(218, 165, 32)),
-            Stroke = Brushes.White,
-            StrokeThickness = 1
-        };
-        OverlayCanvas.Children.Add(pin);
+        OverlayCanvas.Children.Add(HandDrawnMarkerHelper.CreatePartyShield(center, isSelected: false));
     }
 
     private void DrawEncounters()
