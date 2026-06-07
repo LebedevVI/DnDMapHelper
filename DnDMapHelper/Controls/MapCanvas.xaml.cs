@@ -4,6 +4,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
+using System.Windows.Threading;
 using DnDMapHelper.Helpers;
 using DnDMapHelper.Models;
 using DnDMapHelper.Services;
@@ -27,17 +28,47 @@ public partial class MapCanvas : UserControl
     private readonly GameSession _session = GameSession.Current;
     private MapViewport _viewport;
     private bool _isRedrawing;
+    private bool _redrawScheduled;
+    private bool _staticLayerDirty = true;
+    private bool _dynamicLayerDirty = true;
     private double _zoom = 1;
     private bool _isPanning;
     private Point _panStartMouse;
     private double _panStartScrollX;
     private double _panStartScrollY;
     private bool _isApplyingScroll;
+    private QuestMapVisualState? _questVisualState;
+    private double _routeGeometryScale = double.NaN;
+    private readonly Dictionary<Guid, RouteGeometryCache> _routeGeometryCache = [];
+    private readonly List<Point> _scratchCanvasPoints = [];
 
     private const double MinZoom = 1;
     private const double MaxZoom = 6;
     private const double ZoomStep = 1.15;
     private const double KeyboardPanStep = 48;
+
+    private static readonly FontFamily LabelFont = new("Georgia");
+    private static readonly DoubleCollection RouteDashPattern = CreateFrozenDash([10, 6]);
+    private static readonly DoubleCollection DraftDashPattern = CreateFrozenDash([6, 3]);
+    private static readonly DoubleCollection RegionDashPattern = CreateFrozenDash([4, 3]);
+
+    private static readonly SolidColorBrush RouteDraftStroke = CreateFrozenBrush(255, 200, 60);
+    private static readonly SolidColorBrush RouteActiveStroke = CreateFrozenBrush(210, 70, 20);
+    private static readonly SolidColorBrush RouteSelectedStroke = CreateFrozenBrush(150, 95, 25);
+    private static readonly SolidColorBrush RouteNormalStroke = CreateFrozenBrush(120, 80, 35);
+    private static readonly SolidColorBrush RouteBadgeActiveBackground = CreateFrozenBrush(230, 139, 37, 0);
+    private static readonly SolidColorBrush RouteBadgeNormalBackground = CreateFrozenBrush(200, 80, 55, 20);
+    private static readonly SolidColorBrush LabelForeground = CreateFrozenBrush(255, 236, 179);
+    private static readonly SolidColorBrush LabelBackground = CreateFrozenBrush(200, 45, 28, 12);
+    private static readonly SolidColorBrush EncounterLabelBackground = CreateFrozenBrush(210, 48, 27, 12);
+    private static readonly SolidColorBrush RegionLabelForeground = CreateFrozenBrush(61, 41, 20);
+    private static readonly SolidColorBrush RegionLabelBackground = CreateFrozenBrush(180, 244, 232, 200);
+
+    private sealed class RouteGeometryCache
+    {
+        public required IReadOnlyList<Point> SourcePoints;
+        public required PathGeometry Geometry;
+    }
 
     public MapCanvas()
     {
@@ -69,7 +100,7 @@ public partial class MapCanvas : UserControl
 
     public MapViewport Viewport => _viewport;
 
-    public Canvas OverlayCanvasElement => OverlayCanvas;
+    public Canvas OverlayCanvasElement => StaticOverlayCanvas;
 
     public Point CanvasToImage(Point viewPoint)
     {
@@ -108,7 +139,7 @@ public partial class MapCanvas : UserControl
             contentRect.Height / scale);
     }
 
-    public void Refresh() => RedrawOverlay();
+    public void Refresh() => ScheduleRedraw();
 
     public void ResetView() => _zoom = 1;
 
@@ -121,7 +152,8 @@ public partial class MapCanvas : UserControl
         ResetView();
         ApplyContentLayout();
         CenterScrollAtCurrentZoom();
-        RedrawOverlay();
+        InvalidateRouteGeometryCache();
+        ScheduleRedraw();
     }
 
     public double ZoomFactor => _zoom;
@@ -140,7 +172,7 @@ public partial class MapCanvas : UserControl
     private static void OnVisualPropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         if (d is MapCanvas canvas)
-            canvas.RedrawOverlay();
+            canvas.ScheduleRedraw(staticLayer: true, dynamicLayer: true);
     }
 
     private void SubscribeSession()
@@ -148,7 +180,7 @@ public partial class MapCanvas : UserControl
         _session.PropertyChanged += OnSessionChanged;
         _session.Routes.CollectionChanged += OnRoutesCollectionChanged;
         MapImage.Source = _session.MapImage;
-        RedrawOverlay();
+        ScheduleRedraw(staticLayer: true, dynamicLayer: true);
     }
 
     private void UnsubscribeSession()
@@ -157,8 +189,11 @@ public partial class MapCanvas : UserControl
         _session.Routes.CollectionChanged -= OnRoutesCollectionChanged;
     }
 
-    private void OnRoutesCollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e) =>
-        Dispatcher.BeginInvoke(RedrawOverlay);
+    private void OnRoutesCollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        InvalidateRouteGeometryCache();
+        ScheduleRedraw(staticLayer: true, dynamicLayer: false);
+    }
 
     private void OnSessionChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
@@ -168,30 +203,45 @@ public partial class MapCanvas : UserControl
             if (e.PropertyName is nameof(GameSession.MapImage))
             {
                 ResetView();
-                Dispatcher.BeginInvoke(ResetZoom, System.Windows.Threading.DispatcherPriority.Loaded);
+                InvalidateRouteGeometryCache();
+                Dispatcher.BeginInvoke(ResetZoom, DispatcherPriority.Loaded);
+                return;
             }
         }
 
+        if (e.PropertyName is nameof(GameSession.PartyDisplayPosition) or nameof(GameSession.PartyPosition))
+        {
+            ScheduleRedraw(staticLayer: false, dynamicLayer: true);
+            return;
+        }
+
+        if (e.PropertyName is nameof(GameSession.DraftPath) or nameof(GameSession.DraftRegionOutline))
+        {
+            ScheduleRedraw(staticLayer: false, dynamicLayer: true);
+            return;
+        }
+
         if (e.PropertyName is nameof(GameSession.MapImage)
-            or nameof(GameSession.PartyPosition)
-            or nameof(GameSession.PartyDisplayPosition)
             or nameof(GameSession.Targets)
             or nameof(GameSession.Regions)
             or nameof(GameSession.Encounters)
-            or nameof(GameSession.DraftPath)
-            or nameof(GameSession.DraftRegionOutline)
             or nameof(GameSession.Routes)
             or nameof(GameSession.SelectedRouteIndex)
             or nameof(GameSession.SelectedTargetId)
             or nameof(GameSession.SelectedRegionId)
             or nameof(GameSession.SelectedEncounterId)
-            or null)
+            or nameof(GameSession.Quests)
+            or nameof(GameSession.SelectedQuestId))
         {
-            Dispatcher.BeginInvoke(RedrawOverlay);
+            if (e.PropertyName is nameof(GameSession.Quests) or nameof(GameSession.SelectedQuestId))
+                InvalidateRouteGeometryCache();
+
+            ScheduleRedraw(staticLayer: true, dynamicLayer: true);
         }
     }
 
-    private void MapScrollViewer_SizeChanged(object sender, SizeChangedEventArgs e) => RedrawOverlay();
+    private void MapScrollViewer_SizeChanged(object sender, SizeChangedEventArgs e) =>
+        ScheduleRedraw(staticLayer: true, dynamicLayer: true);
 
     private void MapScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
     {
@@ -199,6 +249,26 @@ public partial class MapCanvas : UserControl
             return;
 
         RecalculateViewport();
+    }
+
+    private void ScheduleRedraw(bool staticLayer = true, bool dynamicLayer = true)
+    {
+        if (staticLayer)
+            _staticLayerDirty = true;
+        if (dynamicLayer)
+            _dynamicLayerDirty = true;
+
+        if (_redrawScheduled)
+            return;
+
+        _redrawScheduled = true;
+        Dispatcher.BeginInvoke(ProcessScheduledRedraw, DispatcherPriority.Render);
+    }
+
+    private void ProcessScheduledRedraw()
+    {
+        _redrawScheduled = false;
+        RedrawOverlay();
     }
 
     private double GetBaseScale()
@@ -251,16 +321,20 @@ public partial class MapCanvas : UserControl
         {
             MapContentCanvas.Width = 0;
             MapContentCanvas.Height = 0;
-            OverlayCanvas.Width = 0;
-            OverlayCanvas.Height = 0;
+            StaticOverlayCanvas.Width = 0;
+            StaticOverlayCanvas.Height = 0;
+            DynamicOverlayCanvas.Width = 0;
+            DynamicOverlayCanvas.Height = 0;
             return;
         }
 
         var content = GetContentSize();
         MapContentCanvas.Width = content.Width;
         MapContentCanvas.Height = content.Height;
-        OverlayCanvas.Width = content.Width;
-        OverlayCanvas.Height = content.Height;
+        StaticOverlayCanvas.Width = content.Width;
+        StaticOverlayCanvas.Height = content.Height;
+        DynamicOverlayCanvas.Width = content.Width;
+        DynamicOverlayCanvas.Height = content.Height;
         MapImage.Width = content.Width;
         MapImage.Height = content.Height;
     }
@@ -289,30 +363,45 @@ public partial class MapCanvas : UserControl
 
         if (MapScrollViewer.ViewportWidth <= 0 || MapScrollViewer.ViewportHeight <= 0)
         {
-            Dispatcher.BeginInvoke(RedrawOverlay, System.Windows.Threading.DispatcherPriority.Loaded);
+            Dispatcher.BeginInvoke(ProcessScheduledRedraw, DispatcherPriority.Loaded);
             return;
         }
+
+        if (!_staticLayerDirty && !_dynamicLayerDirty)
+            return;
 
         _isRedrawing = true;
         try
         {
             ApplyContentLayout();
             RecalculateViewport();
-            OverlayCanvas.Children.Clear();
-            if (_session.MapImage is null)
-                return;
 
-            foreach (var region in _session.Regions)
+            var scale = ContentScale;
+            if (Math.Abs(scale - _routeGeometryScale) > 0.0001)
+                InvalidateRouteGeometryCache();
+
+            if (_session.MapImage is null)
             {
-                if (ShouldDrawRegion(region))
-                    DrawRegion(region);
+                StaticOverlayCanvas.Children.Clear();
+                DynamicOverlayCanvas.Children.Clear();
+                _questVisualState = null;
+                return;
             }
 
-            DrawRoutes();
-            DrawTargets();
-            if (!IsPlayerMode)
-                DrawEncounters();
-            DrawParty();
+            if (_staticLayerDirty)
+            {
+                _questVisualState = QuestMapVisualState.Build(_session, IsPlayerMode);
+                StaticOverlayCanvas.Children.Clear();
+                DrawStaticOverlay(_questVisualState, scale);
+                _staticLayerDirty = false;
+            }
+
+            if (_dynamicLayerDirty)
+            {
+                DynamicOverlayCanvas.Children.Clear();
+                DrawDynamicOverlay(scale);
+                _dynamicLayerDirty = false;
+            }
         }
         finally
         {
@@ -320,54 +409,108 @@ public partial class MapCanvas : UserControl
         }
     }
 
-    private Point ImageToContent(Point imagePoint)
+    private void DrawStaticOverlay(QuestMapVisualState questState, double scale)
     {
-        var scale = ContentScale;
-        return new Point(imagePoint.X * scale, imagePoint.Y * scale);
+        foreach (var region in _session.Regions)
+        {
+            if (ShouldDrawRegion(region, questState))
+                DrawRegion(region, questState, scale);
+        }
+
+        DrawCommittedRoutes(scale);
+
+        foreach (var target in _session.Targets)
+        {
+            if (!questState.IsTargetVisible(target.Id))
+                continue;
+
+            DrawTarget(target, questState, scale);
+        }
+
+        if (!IsPlayerMode)
+            DrawEncounters(scale);
     }
 
-    private bool ShouldDrawRegion(MapRegion region)
+    private void DrawDynamicOverlay(double scale)
     {
+        if (_session.DraftPath.Count >= 2)
+            DrawRoutePath(_session.DraftPath, scale, isHighlighted: true, isActive: false, order: null, isDraft: true);
+
+        if (!IsPlayerMode && _session.DraftRegionOutline.Count >= 2)
+            DrawRegionOutline(_session.DraftRegionOutline, scale, isDraft: true);
+
+        DrawParty(scale);
+    }
+
+    private Point ImageToContent(Point imagePoint, double scale) =>
+        new(imagePoint.X * scale, imagePoint.Y * scale);
+
+    private void TransformPointsToCanvas(IReadOnlyList<Point> imagePoints, double scale, List<Point> destination)
+    {
+        destination.Clear();
+        destination.Capacity = Math.Max(destination.Capacity, imagePoints.Count);
+        for (var i = 0; i < imagePoints.Count; i++)
+        {
+            var point = imagePoints[i];
+            destination.Add(new Point(point.X * scale, point.Y * scale));
+        }
+    }
+
+    private bool ShouldDrawRegion(MapRegion region, QuestMapVisualState? questState = null)
+    {
+        questState ??= _questVisualState ?? QuestMapVisualState.Build(_session, IsPlayerMode);
+        if (!questState.IsRegionVisible(region.Id))
+            return false;
+
         if (GetValue(IsPlayerModeProperty) is true)
             return region.VisibleToPlayers;
 
         return ShowRegions;
     }
 
-    private void DrawRegion(MapRegion region)
+    private void DrawRegion(MapRegion region, QuestMapVisualState questState, double scale)
     {
         if (region.Outline.Count < 3)
             return;
 
         var forPlayerDisplay = IsPlayerMode && region.VisibleToPlayers;
+        var questHighlight = questState.IsRegionHighlighted(region.Id);
+        var isSelected = !IsPlayerMode && _session.SelectedRegionId == region.Id;
+
         DrawRegionOutline(
             region.Outline,
-            isSelected: !IsPlayerMode && _session.SelectedRegionId == region.Id,
+            scale,
+            isSelected: isSelected,
             isDraft: false,
             title: HighlightRegions || forPlayerDisplay ? region.Title : null,
-            forPlayerDisplay: forPlayerDisplay);
+            forPlayerDisplay: forPlayerDisplay,
+            questHighlight: questHighlight);
     }
 
     private void DrawRegionOutline(
         IReadOnlyList<Point> imageOutline,
+        double scale,
         bool isSelected = false,
         bool isDraft = false,
         string? title = null,
-        bool forPlayerDisplay = false)
+        bool forPlayerDisplay = false,
+        bool questHighlight = false)
     {
         if (imageOutline.Count < 2)
             return;
 
-        var canvasPoints = imageOutline.Select(ImageToContent).ToList();
-        var geometry = canvasPoints.Count >= 3
-            ? RegionGeometryHelper.CreateClosedSmoothPath(canvasPoints)
-            : PathGeometryHelper.CreateSmoothPath(canvasPoints);
+        TransformPointsToCanvas(imageOutline, scale, _scratchCanvasPoints);
+        var geometry = _scratchCanvasPoints.Count >= 3
+            ? RegionGeometryHelper.CreateClosedSmoothPath(_scratchCanvasPoints)
+            : PathGeometryHelper.CreateSmoothPath(_scratchCanvasPoints);
 
         var fill = isDraft
             ? new SolidColorBrush(Color.FromArgb(45, 201, 168, 108))
-            : forPlayerDisplay || HighlightRegions
-                ? new SolidColorBrush(Color.FromArgb((byte)(isSelected ? 90 : forPlayerDisplay ? 75 : 60), 201, 168, 108))
-                : new SolidColorBrush(Color.FromArgb(25, 201, 168, 108));
+            : questHighlight
+                ? new SolidColorBrush(Color.FromArgb(95, 255, 220, 120))
+                : forPlayerDisplay || HighlightRegions
+                    ? new SolidColorBrush(Color.FromArgb((byte)(isSelected ? 90 : forPlayerDisplay ? 75 : 60), 201, 168, 108))
+                    : new SolidColorBrush(Color.FromArgb(25, 201, 168, 108));
 
         var shape = new Path
         {
@@ -375,48 +518,43 @@ public partial class MapCanvas : UserControl
             Fill = fill,
             Stroke = new SolidColorBrush(isSelected
                 ? Color.FromRgb(139, 37, 0)
-                : forPlayerDisplay
-                    ? Color.FromRgb(160, 120, 35)
-                    : Color.FromRgb(139, 105, 20)),
-            StrokeThickness = isSelected ? 3 : forPlayerDisplay || HighlightRegions || isDraft ? 2.5 : 1.5,
-            StrokeDashArray = isSelected || HighlightRegions || isDraft || forPlayerDisplay
+                : questHighlight
+                    ? Color.FromRgb(210, 160, 40)
+                    : forPlayerDisplay
+                        ? Color.FromRgb(160, 120, 35)
+                        : Color.FromRgb(139, 105, 20)),
+            StrokeThickness = isSelected ? 3 : questHighlight || forPlayerDisplay || HighlightRegions || isDraft ? 2.5 : 1.5,
+            StrokeDashArray = isSelected || HighlightRegions || isDraft || forPlayerDisplay || questHighlight
                 ? null
-                : new DoubleCollection([4, 3])
+                : RegionDashPattern
         };
-        OverlayCanvas.Children.Add(shape);
+        StaticOverlayCanvas.Children.Add(shape);
 
         if (!string.IsNullOrWhiteSpace(title) && imageOutline.Count >= 1)
         {
             var bounds = RegionGeometryHelper.GetBounds(imageOutline);
-            var topLeft = ImageToContent(bounds.TopLeft);
+            var topLeft = ImageToContent(bounds.TopLeft, scale);
             var label = new TextBlock
             {
                 Text = title,
-                FontFamily = new FontFamily("Georgia"),
+                FontFamily = LabelFont,
                 FontSize = 11,
-                Foreground = new SolidColorBrush(Color.FromRgb(61, 41, 20)),
-                Background = new SolidColorBrush(Color.FromArgb(180, 244, 232, 200))
+                Foreground = RegionLabelForeground,
+                Background = RegionLabelBackground
             };
             Canvas.SetLeft(label, topLeft.X + 4);
             Canvas.SetTop(label, topLeft.Y + 4);
-            OverlayCanvas.Children.Add(label);
+            StaticOverlayCanvas.Children.Add(label);
         }
     }
 
-    private Rect ContentRectFromImage(Rect imageRect)
-    {
-        var topLeft = ImageToContent(imageRect.TopLeft);
-        var bottomRight = ImageToContent(imageRect.BottomRight);
-        return new Rect(topLeft, bottomRight);
-    }
-
-    private void DrawRoutes()
+    private void DrawCommittedRoutes(double scale)
     {
         if (IsPlayerMode)
         {
             var active = _session.ActiveRoute;
             if (active is not null && active.Points.Count >= 2)
-                DrawRoutePath(active.Points, isHighlighted: true, isActive: true, active.Order);
+                DrawRoutePath(active.Points, scale, isHighlighted: true, isActive: true, active.Order, routeId: active.Id);
             return;
         }
 
@@ -428,78 +566,82 @@ public partial class MapCanvas : UserControl
 
             var isActive = i == 0;
             var isSelected = i == _session.SelectedRouteIndex;
-            DrawRoutePath(route.Points, isHighlighted: isSelected, isActive: isActive, route.Order);
+            DrawRoutePath(route.Points, scale, isHighlighted: isSelected, isActive: isActive, route.Order, routeId: route.Id);
         }
-
-        if (_session.DraftPath.Count >= 2)
-            DrawRoutePath(_session.DraftPath, isHighlighted: true, isActive: false, order: null, isDraft: true);
-
-        if (!IsPlayerMode && _session.DraftRegionOutline.Count >= 2)
-            DrawRegionOutline(_session.DraftRegionOutline, isDraft: true);
     }
 
     private void DrawRoutePath(
         IReadOnlyList<Point> imagePoints,
+        double scale,
         bool isHighlighted,
         bool isActive,
         int? order,
-        bool isDraft = false)
+        bool isDraft = false,
+        Guid? routeId = null)
     {
-        var canvasPoints = imagePoints.Select(ImageToContent).ToList();
-        var geometry = PathGeometryHelper.CreateSmoothPath(canvasPoints);
+        PathGeometry geometry;
+        if (!isDraft && routeId is { } id && TryGetCachedRouteGeometry(id, imagePoints, scale, out var cached))
+        {
+            geometry = cached;
+        }
+        else
+        {
+            TransformPointsToCanvas(imagePoints, scale, _scratchCanvasPoints);
+            geometry = PathGeometryHelper.CreateSmoothPath(_scratchCanvasPoints);
+            geometry.Freeze();
+            if (!isDraft && routeId is { } cacheId)
+                StoreRouteGeometry(cacheId, imagePoints, geometry);
+        }
 
-        Color strokeColor;
         double thickness;
         double opacity;
+        SolidColorBrush stroke;
 
         if (isDraft)
         {
-            strokeColor = Color.FromRgb(255, 200, 60);
+            stroke = RouteDraftStroke;
             thickness = 4;
             opacity = 1;
         }
         else if (isActive)
         {
-            strokeColor = Color.FromRgb(210, 70, 20);
+            stroke = RouteActiveStroke;
             thickness = 3.5;
             opacity = 0.95;
         }
         else if (isHighlighted)
         {
-            strokeColor = Color.FromRgb(150, 95, 25);
+            stroke = RouteSelectedStroke;
             thickness = 3;
             opacity = 0.9;
         }
         else
         {
-            strokeColor = Color.FromRgb(120, 80, 35);
+            stroke = RouteNormalStroke;
             thickness = 2.5;
             opacity = 0.65;
         }
 
-        var dashPattern = isDraft
-            ? new DoubleCollection([6, 3])
-            : new DoubleCollection([10, 6]);
-
         var path = new Path
         {
             Data = geometry,
-            Stroke = new SolidColorBrush(strokeColor),
+            Stroke = stroke,
             StrokeThickness = thickness,
-            StrokeDashArray = dashPattern,
+            StrokeDashArray = isDraft ? DraftDashPattern : RouteDashPattern,
             Fill = Brushes.Transparent,
             Opacity = opacity
         };
-        OverlayCanvas.Children.Add(path);
+
+        var targetCanvas = isDraft ? DynamicOverlayCanvas : StaticOverlayCanvas;
+        targetCanvas.Children.Add(path);
 
         if (order.HasValue && !isDraft)
         {
-            var badgePoint = canvasPoints[0];
+            TransformPointsToCanvas(imagePoints, scale, _scratchCanvasPoints);
+            var badgePoint = _scratchCanvasPoints[0];
             var badge = new Border
             {
-                Background = new SolidColorBrush(isActive
-                    ? Color.FromArgb(230, 139, 37, 0)
-                    : Color.FromArgb(200, 80, 55, 20)),
+                Background = isActive ? RouteBadgeActiveBackground : RouteBadgeNormalBackground,
                 CornerRadius = new CornerRadius(10),
                 Padding = new Thickness(6, 2, 6, 2),
                 Child = new TextBlock
@@ -512,76 +654,103 @@ public partial class MapCanvas : UserControl
             };
             Canvas.SetLeft(badge, badgePoint.X - 10);
             Canvas.SetTop(badge, badgePoint.Y - 22);
-            OverlayCanvas.Children.Add(badge);
+            StaticOverlayCanvas.Children.Add(badge);
         }
     }
 
-    private void DrawTargets()
+    private bool TryGetCachedRouteGeometry(Guid routeId, IReadOnlyList<Point> sourcePoints, double scale, out PathGeometry geometry)
     {
-        foreach (var target in _session.Targets)
+        if (_routeGeometryCache.TryGetValue(routeId, out var cache)
+            && ReferenceEquals(cache.SourcePoints, sourcePoints))
         {
-            var center = ImageToContent(target.Position);
-            var isSelected = !IsPlayerMode && _session.SelectedTargetId == target.Id;
-            var size = isSelected ? 28 : 22;
+            geometry = cache.Geometry;
+            return true;
+        }
 
-            var marker = HandDrawnMarkerHelper.CreateTargetMarker(center, isSelected, target.Id);
-            marker.Tag = target;
-            OverlayCanvas.Children.Add(marker);
+        geometry = null!;
+        return false;
+    }
 
-            if (!string.IsNullOrWhiteSpace(target.Label))
+    private void StoreRouteGeometry(Guid routeId, IReadOnlyList<Point> sourcePoints, PathGeometry geometry)
+    {
+        _routeGeometryCache[routeId] = new RouteGeometryCache
+        {
+            SourcePoints = sourcePoints,
+            Geometry = geometry
+        };
+        _routeGeometryScale = ContentScale;
+    }
+
+    private void InvalidateRouteGeometryCache()
+    {
+        _routeGeometryCache.Clear();
+        _routeGeometryScale = double.NaN;
+    }
+
+    private void DrawTarget(TargetMarker target, QuestMapVisualState questState, double scale)
+    {
+        var center = ImageToContent(target.Position, scale);
+        var isSelected = !IsPlayerMode && _session.SelectedTargetId == target.Id;
+        var questHighlight = questState.IsTargetHighlighted(target.Id);
+        var size = isSelected || questHighlight ? 28 : 22;
+
+        var marker = HandDrawnMarkerHelper.CreateTargetMarker(center, isSelected, target.Id, questHighlight);
+        marker.Tag = target;
+        StaticOverlayCanvas.Children.Add(marker);
+
+        if (!string.IsNullOrWhiteSpace(target.Label))
+        {
+            var label = new TextBlock
             {
-                var label = new TextBlock
-                {
-                    Text = target.Label,
-                    FontFamily = new FontFamily("Georgia"),
-                    FontSize = isSelected ? 13 : 12,
-                    FontWeight = FontWeights.SemiBold,
-                    Foreground = new SolidColorBrush(Color.FromRgb(255, 236, 179)),
-                    Background = new SolidColorBrush(Color.FromArgb(200, 45, 28, 12)),
-                    Padding = new Thickness(4, 2, 4, 2)
-                };
-                label.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-                Canvas.SetLeft(label, center.X - label.DesiredSize.Width / 2);
-                Canvas.SetTop(label, center.Y + size / 2 + 4);
-                OverlayCanvas.Children.Add(label);
-            }
+                Text = target.Label,
+                FontFamily = LabelFont,
+                FontSize = isSelected ? 13 : 12,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = LabelForeground,
+                Background = LabelBackground,
+                Padding = new Thickness(4, 2, 4, 2)
+            };
+            label.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            Canvas.SetLeft(label, center.X - label.DesiredSize.Width / 2);
+            Canvas.SetTop(label, center.Y + size / 2 + 4);
+            StaticOverlayCanvas.Children.Add(label);
         }
     }
 
-    private void DrawParty()
+    private void DrawParty(double scale)
     {
         var pos = _session.PartyDisplayPosition;
         if (!pos.HasValue)
             return;
 
-        var center = ImageToContent(pos.Value);
-        OverlayCanvas.Children.Add(HandDrawnMarkerHelper.CreatePartyShield(center, isSelected: false));
+        var center = ImageToContent(pos.Value, scale);
+        DynamicOverlayCanvas.Children.Add(HandDrawnMarkerHelper.CreatePartyShield(center, isSelected: false));
     }
 
-    private void DrawEncounters()
+    private void DrawEncounters(double scale)
     {
         foreach (var encounter in _session.Encounters)
         {
-            var center = ImageToContent(encounter.Position);
+            var center = ImageToContent(encounter.Position, scale);
             var isSelected = _session.SelectedEncounterId == encounter.Id;
-            OverlayCanvas.Children.Add(HandDrawnMarkerHelper.CreateEncounterSwords(center, isSelected));
+            StaticOverlayCanvas.Children.Add(HandDrawnMarkerHelper.CreateEncounterSwords(center, isSelected));
 
             if (!string.IsNullOrWhiteSpace(encounter.Title))
             {
                 var label = new TextBlock
                 {
                     Text = encounter.Title,
-                    FontFamily = new FontFamily("Georgia"),
+                    FontFamily = LabelFont,
                     FontSize = 11,
                     FontWeight = FontWeights.SemiBold,
-                    Foreground = new SolidColorBrush(Color.FromRgb(255, 236, 179)),
-                    Background = new SolidColorBrush(Color.FromArgb(210, 48, 27, 12)),
+                    Foreground = LabelForeground,
+                    Background = EncounterLabelBackground,
                     Padding = new Thickness(4, 2, 4, 2)
                 };
                 label.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
                 Canvas.SetLeft(label, center.X - label.DesiredSize.Width / 2);
                 Canvas.SetTop(label, center.Y + 12);
-                OverlayCanvas.Children.Add(label);
+                StaticOverlayCanvas.Children.Add(label);
             }
         }
     }
@@ -592,6 +761,9 @@ public partial class MapCanvas : UserControl
         for (var i = _session.Regions.Count - 1; i >= 0; i--)
         {
             var region = _session.Regions[i];
+            if (!ShouldDrawRegion(region))
+                continue;
+
             if (region.Outline.Count >= 3 &&
                 RegionGeometryHelper.ContainsPoint(region.Outline, imagePoint))
                 return region;
@@ -603,18 +775,49 @@ public partial class MapCanvas : UserControl
     public TargetMarker? HitTestTarget(Point viewPoint, double tolerance = 18)
     {
         var imagePoint = CanvasToImage(viewPoint);
-        return _session.Targets
-            .OrderBy(t => Distance(t.Position, imagePoint))
-            .FirstOrDefault(t => Distance(t.Position, imagePoint) <= tolerance / Math.Max(_viewport.Scale, 0.01));
+        var questState = _questVisualState ?? QuestMapVisualState.Build(_session, IsPlayerMode);
+        TargetMarker? closest = null;
+        var closestDistance = double.MaxValue;
+
+        foreach (var target in _session.Targets)
+        {
+            if (!questState.IsTargetVisible(target.Id))
+                continue;
+
+            var distance = Distance(target.Position, imagePoint);
+            if (distance >= closestDistance)
+                continue;
+
+            closest = target;
+            closestDistance = distance;
+        }
+
+        return closest is not null &&
+               closestDistance <= tolerance / Math.Max(_viewport.Scale, 0.01)
+            ? closest
+            : null;
     }
 
     public EncounterPoint? HitTestEncounter(Point viewPoint, double tolerance = 20)
     {
         var imagePoint = CanvasToImage(viewPoint);
-        return _session.Encounters
-            .OrderBy(encounter => Distance(encounter.Position, imagePoint))
-            .FirstOrDefault(encounter =>
-                Distance(encounter.Position, imagePoint) <= tolerance / Math.Max(_viewport.Scale, 0.01));
+        EncounterPoint? closest = null;
+        var closestDistance = double.MaxValue;
+
+        foreach (var encounter in _session.Encounters)
+        {
+            var distance = Distance(encounter.Position, imagePoint);
+            if (distance >= closestDistance)
+                continue;
+
+            closest = encounter;
+            closestDistance = distance;
+        }
+
+        return closest is not null &&
+               closestDistance <= tolerance / Math.Max(_viewport.Scale, 0.01)
+            ? closest
+            : null;
     }
 
     private static double Distance(Point a, Point b)
@@ -622,6 +825,23 @@ public partial class MapCanvas : UserControl
         var dx = a.X - b.X;
         var dy = a.Y - b.Y;
         return Math.Sqrt(dx * dx + dy * dy);
+    }
+
+    private static SolidColorBrush CreateFrozenBrush(byte a, byte r, byte g, byte b)
+    {
+        var brush = new SolidColorBrush(Color.FromArgb(a, r, g, b));
+        brush.Freeze();
+        return brush;
+    }
+
+    private static SolidColorBrush CreateFrozenBrush(byte r, byte g, byte b) =>
+        CreateFrozenBrush(255, r, g, b);
+
+    private static DoubleCollection CreateFrozenDash(double[] values)
+    {
+        var collection = new DoubleCollection(values);
+        collection.Freeze();
+        return collection;
     }
 
     private Point GetZoomCenter()
@@ -645,6 +865,7 @@ public partial class MapCanvas : UserControl
         _zoom = newZoom;
 
         ApplyContentLayout();
+        InvalidateRouteGeometryCache();
 
         var scale = ContentScale;
         var contentX = imagePoint.X * scale;
@@ -652,7 +873,7 @@ public partial class MapCanvas : UserControl
         var (letterboxX, letterboxY) = GetLetterboxOffset();
 
         SetScrollOffsets(contentX + letterboxX - viewPoint.X, contentY + letterboxY - viewPoint.Y);
-        RedrawOverlay();
+        ScheduleRedraw(staticLayer: true, dynamicLayer: true);
     }
 
     private void CenterScrollAtCurrentZoom() => SetScrollOffsets(0, 0);

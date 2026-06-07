@@ -15,20 +15,31 @@
         <Border VerticalAlignment="Top" HorizontalAlignment="Right"
                 Margin="12" Background="#AA2A1A08" CornerRadius="4" Padding="4">
             <StackPanel Orientation="Horizontal">
+                <ToggleButton x:Name="ToggleQuestJournal" Content="Квесты"
+                              Style="{StaticResource FantasyCompactToolButton}"
+                              ToolTip="Журнал квестов — условия, награда, подсветка на карте"
+                              Checked="ToggleQuestJournal_Checked"
+                              Unchecked="ToggleQuestJournal_Checked"/>
                 <Button x:Name="CompactModeButton"
                         Content="Окно"
-                        Style="{StaticResource FantasyButton}"
-                        FontSize="12" Padding="10,6"
+                        Style="{StaticResource FantasyCompactButton}"
                         Click="CompactModeButton_Click"
                         ToolTip="Свернуть в окно для отладки на одном мониторе"/>
                 <Button x:Name="FullscreenModeButton"
                         Content="На весь экран"
-                        Style="{StaticResource FantasyButton}"
-                        FontSize="12" Padding="10,6"
+                        Style="{StaticResource FantasyCompactButton}"
                         Visibility="Collapsed"
                         Click="FullscreenModeButton_Click"
                         ToolTip="Развернуть на весь экран"/>
             </StackPanel>
+        </Border>
+
+        <Border x:Name="QuestJournalPanel"
+                HorizontalAlignment="Left" VerticalAlignment="Stretch"
+                Width="280" Margin="12,56,0,12"
+                Style="{StaticResource FantasyCompactPanel}"
+                Visibility="Collapsed">
+            <controls:QuestJournalControl x:Name="QuestJournal" IsMasterMode="False"/>
         </Border>
 
         <Border x:Name="NoMapHint"

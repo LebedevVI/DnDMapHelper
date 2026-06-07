@@ -8,7 +8,7 @@
         Style="{StaticResource FantasyWindow}"
         PreviewKeyDown="Window_PreviewKeyDown">
     <DockPanel>
-        <Border DockPanel.Dock="Top" Style="{StaticResource FantasyPanel}" Margin="8,8,8,4" Padding="10">
+        <Border DockPanel.Dock="Top" Style="{StaticResource FantasyCompactPanel}" Margin="4,4,4,2" Padding="6">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -17,62 +17,82 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0" Orientation="Horizontal">
-                    <Button Content="Загрузить карту" Style="{StaticResource FantasyButton}" Click="LoadMap_Click"/>
-                    <Button Content="+" Style="{StaticResource FantasyButton}" Width="36" Padding="0"
+                    <Button Content="Карта" Style="{StaticResource FantasyCompactButton}"
+                            ToolTip="Загрузить карту" Click="LoadMap_Click"/>
+                    <Button Content="+" Style="{StaticResource FantasyCompactButton}" Width="28" Padding="0"
                             ToolTip="Приблизить карту" Click="ZoomIn_Click"/>
-                    <Button Content="−" Style="{StaticResource FantasyButton}" Width="36" Padding="0"
+                    <Button Content="−" Style="{StaticResource FantasyCompactButton}" Width="28" Padding="0"
                             ToolTip="Отдалить карту" Click="ZoomOut_Click"/>
-                    <Button Content="⊡" Style="{StaticResource FantasyButton}" Width="36" Padding="0"
+                    <Button Content="⊡" Style="{StaticResource FantasyCompactButton}" Width="28" Padding="0"
                             ToolTip="Исходный размер карты" Click="ResetZoom_Click"/>
                 </StackPanel>
 
                 <WrapPanel Grid.Column="1" HorizontalAlignment="Center">
-                    <ToggleButton x:Name="ToolNavigate" Content="Обзор" Style="{StaticResource FantasyToolButton}"
-                                  Checked="Tool_Checked" Tag="Navigate"/>
-                    <ToggleButton x:Name="ToolParty" Content="Метка партии" Style="{StaticResource FantasyToolButton}"
-                                  Checked="Tool_Checked" Tag="PartyMarker"/>
-                    <ToggleButton x:Name="ToolTarget" Content="Метка цели" Style="{StaticResource FantasyToolButton}"
-                                  Checked="Tool_Checked" Tag="TargetMarker"/>
-                    <ToggleButton x:Name="ToolEncounter" Content="Столкновение" Style="{StaticResource FantasyToolButton}"
-                                  Checked="Tool_Checked" Tag="EncounterMarker"/>
-                    <ToggleButton x:Name="ToolPath" Content="Маршрут" Style="{StaticResource FantasyToolButton}"
-                                  Checked="Tool_Checked" Tag="DrawPath"/>
-                    <ToggleButton x:Name="ToolRegion" Content="Описание области" Style="{StaticResource FantasyToolButton}"
-                                  Checked="Tool_Checked" Tag="DrawRegion"/>
+                    <ToggleButton x:Name="ToolNavigate" Content="Обзор" Style="{StaticResource FantasyCompactToolButton}"
+                                  ToolTip="Обзор и выбор объектов" Checked="Tool_Checked" Tag="Navigate"/>
+                    <ToggleButton x:Name="ToolParty" Content="Партия" Style="{StaticResource FantasyCompactToolButton}"
+                                  ToolTip="Метка партии" Checked="Tool_Checked" Tag="PartyMarker"/>
+                    <ToggleButton x:Name="ToolTarget" Content="Цель" Style="{StaticResource FantasyCompactToolButton}"
+                                  ToolTip="Метка цели" Checked="Tool_Checked" Tag="TargetMarker"/>
+                    <ToggleButton x:Name="ToolEncounter" Content="Бой" Style="{StaticResource FantasyCompactToolButton}"
+                                  ToolTip="Столкновение" Checked="Tool_Checked" Tag="EncounterMarker"/>
+                    <ToggleButton x:Name="ToolPath" Content="Путь" Style="{StaticResource FantasyCompactToolButton}"
+                                  ToolTip="Нарисовать маршрут" Checked="Tool_Checked" Tag="DrawPath"/>
+                    <ToggleButton x:Name="ToolRegion" Content="Область" Style="{StaticResource FantasyCompactToolButton}"
+                                  ToolTip="Описание области" Checked="Tool_Checked" Tag="DrawRegion"/>
                 </WrapPanel>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal">
-                    <Button x:Name="MoveButton" Content="⚔ Движение"
-                            Style="{StaticResource FantasyButton}" Click="MoveButton_Click"/>
-                    <Button Content="Экран игры ▶" Style="{StaticResource FantasyButton}" Click="OpenPlayer_Click"/>
-                    <Button x:Name="TogglePlayerWindowButton" Content="Свернуть игроков"
-                            Style="{StaticResource FantasyButton}" Click="TogglePlayerWindow_Click"
+                    <ToggleButton x:Name="ToggleQuestJournal" Content="Квесты"
+                                  Style="{StaticResource FantasyCompactToolButton}"
+                                  ToolTip="Журнал квестов — задания, подсветка целей на карте"
+                                  Checked="ToggleQuestJournal_Checked"
+                                  Unchecked="ToggleQuestJournal_Checked"/>
+                    <ToggleButton x:Name="ToggleRouteJournal" Content="Маршруты"
+                                  Style="{StaticResource FantasyCompactToolButton}"
+                                  ToolTip="Очередь маршрутов — список, просмотр, очистка"
+                                  Checked="ToggleRouteJournal_Checked"
+                                  Unchecked="ToggleRouteJournal_Checked"/>
+                    <Button x:Name="MoveButton" Content="⚔"
+                            Style="{StaticResource FantasyCompactButton}"
+                            ToolTip="Движение отряда по первому маршруту в очереди" Click="MoveButton_Click"/>
+                    <Button Content="▶" Style="{StaticResource FantasyCompactButton}"
+                            ToolTip="Открыть экран игры для игроков" Click="OpenPlayer_Click"/>
+                    <Button x:Name="TogglePlayerWindowButton" Content="Свернуть"
+                            Style="{StaticResource FantasyCompactButton}"
+                            ToolTip="Свернуть окно игроков"
+                            Click="TogglePlayerWindow_Click"
                             IsEnabled="False" Visibility="Collapsed"/>
                 </StackPanel>
             </Grid>
         </Border>
 
-        <Border DockPanel.Dock="Bottom" Style="{StaticResource FantasyPanel}" Margin="8,4,8,8" Padding="8">
+        <Border DockPanel.Dock="Bottom" Style="{StaticResource FantasyCompactPanel}" Margin="4,2,4,4" Padding="4,4">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock x:Name="StatusText" Grid.Column="0" FontSize="13" TextWrapping="Wrap"
+                <TextBlock x:Name="StatusText" Grid.Column="0" FontSize="12" TextWrapping="Wrap"
                            VerticalAlignment="Center"
-                           Foreground="{StaticResource InkBrush}" Margin="0,0,8,0"/>
+                           Foreground="{StaticResource InkBrush}" Margin="0,0,6,0"/>
                 <Button Grid.Column="1" Content="?"
-                        Style="{StaticResource FantasyButton}"
-                        Width="40" Height="40"
-                        FontSize="20" FontWeight="Bold"
+                        Style="{StaticResource FantasyCompactButton}"
+                        Width="32" Height="32"
+                        FontSize="16" FontWeight="Bold"
                         Padding="0" VerticalAlignment="Center"
                         ToolTip="Справка — как пользоваться программой"
                         Click="HelpButton_Click"/>
             </Grid>
         </Border>
 
-        <Border DockPanel.Dock="Right" Style="{StaticResource FantasyPanel}" Margin="0,0,8,0"
-                Width="240" Padding="8">
+        <Border x:Name="QuestJournalPanel" DockPanel.Dock="Left" Style="{StaticResource FantasyCompactPanel}"
+                Width="260" Visibility="Collapsed">
+            <controls:QuestJournalControl x:Name="QuestJournal" IsMasterMode="True"/>
+        </Border>
+
+        <Border x:Name="RouteJournalPanel" DockPanel.Dock="Right" Style="{StaticResource FantasyCompactPanel}"
+                Width="220" Visibility="Collapsed">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -80,31 +100,31 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <TextBlock Grid.Row="0" Text="Очередь маршрутов" Style="{StaticResource FantasyTitle}"
-                           FontSize="15" Margin="0,0,0,8"/>
+                <TextBlock Grid.Row="0" Text="Маршруты" Style="{StaticResource FantasyTitle}"
+                           FontSize="14" Margin="0,0,0,6"/>
 
                 <ListBox x:Name="RouteList" Grid.Row="1"
                          SelectionChanged="RouteList_SelectionChanged"
-                         FontSize="13">
+                         FontSize="12">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <TextBlock Text="{Binding DisplayName}" TextWrapping="Wrap" Padding="4,2"/>
+                            <TextBlock Text="{Binding DisplayName}" TextWrapping="Wrap" Padding="2,1"/>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
 
-                <StackPanel Grid.Row="2" Margin="0,8,0,0">
-                    <TextBlock x:Name="RouteQueueHint" FontSize="11" FontStyle="Italic"
-                               TextWrapping="Wrap" Opacity="0.8" Margin="0,0,0,6"/>
-                    <Button Content="Очистить маршруты" Style="{StaticResource FantasyButton}"
-                            FontSize="11" Padding="8,4" Margin="0,0,0,4" Click="ClearRoutes_Click"/>
-                    <Button Content="Удалить выбранный" Style="{StaticResource FantasyButton}"
-                            FontSize="11" Padding="8,4" Click="RemoveSelectedRoute_Click"/>
+                <StackPanel Grid.Row="2" Margin="0,6,0,0">
+                    <TextBlock x:Name="RouteQueueHint" FontSize="10" FontStyle="Italic"
+                               TextWrapping="Wrap" Opacity="0.8" Margin="0,0,0,4"/>
+                    <Button Content="Очистить" Style="{StaticResource FantasyCompactButton}"
+                            ToolTip="Очистить все маршруты" Click="ClearRoutes_Click"/>
+                    <Button Content="Удалить" Style="{StaticResource FantasyCompactButton}"
+                            ToolTip="Удалить выбранный маршрут" Click="RemoveSelectedRoute_Click"/>
                 </StackPanel>
             </Grid>
         </Border>
 
-        <Border Margin="8,0" BorderBrush="{StaticResource LeatherBrush}" BorderThickness="4" CornerRadius="2">
+        <Border Margin="4,0" BorderBrush="{StaticResource LeatherBrush}" BorderThickness="2" CornerRadius="2">
             <controls:MapCanvas x:Name="MapView"
                                 HighlightRegions="True"
                                 PreviewMouseLeftButtonDown="MapView_MouseLeftButtonDown"

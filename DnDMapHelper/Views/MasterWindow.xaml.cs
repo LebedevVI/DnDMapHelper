@@ -27,9 +27,9 @@ public partial class MasterWindow : Window
         InitializeComponent();
         ToolNavigate.IsChecked = true;
         RouteList.ItemsSource = _session.Routes;
+        QuestJournal.StatusMessageRequested += msg => UpdateStatus(msg);
         _session.Routes.CollectionChanged += (_, _) => Dispatcher.BeginInvoke(SyncRouteList);
 
-        _movement.MovementFrame += OnMovementFrame;
         _movement.MovementStateChanged += UpdateMoveButton;
         _session.EncounterTriggered += OnEncounterTriggered;
 
@@ -48,13 +48,12 @@ public partial class MasterWindow : Window
                 or nameof(GameSession.HasPausedMovement)
                 or nameof(GameSession.CanStartMovement))
                 UpdateMoveButton();
+            if (e.PropertyName is nameof(GameSession.Quests) or nameof(GameSession.SelectedQuestId))
+            {
+                MapView.Refresh();
+                _playerWindow?.RefreshMap();
+            }
         };
-    }
-
-    private void OnMovementFrame()
-    {
-        MapView.Refresh();
-        _playerWindow?.RefreshMap();
     }
 
     private void MoveButton_Click(object sender, RoutedEventArgs e) =>
@@ -94,14 +93,16 @@ public partial class MasterWindow : Window
         _session.Targets.Clear();
         _session.Regions.Clear();
         _session.Encounters.Clear();
+        _session.Quests.Clear();
         _session.PartyPosition = null;
         _session.ClearAllRoutes();
         _session.SelectedTargetId = null;
         _session.SelectedRegionId = null;
         _session.SelectedEncounterId = null;
+        _session.SelectQuest(null);
         SyncRouteList();
         MapView.Refresh();
-        UpdateStatus("Карта загружена. Разместите метку партии и цели.");
+        UpdateStatus("Карта загружена. Поставьте «Партия» и «Цель» — или откройте «Квесты», когда будете готовы.");
     }
 
     private void ClearRoutes_Click(object sender, RoutedEventArgs e)
@@ -151,6 +152,19 @@ public partial class MasterWindow : Window
 
         UpdateRouteQueueHint();
     }
+
+    private void ToggleQuestJournal_Checked(object sender, RoutedEventArgs e)
+    {
+        QuestJournalPanel.Visibility = ToggleQuestJournal.IsChecked == true
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        UpdateStatus();
+    }
+
+    private void ToggleRouteJournal_Checked(object sender, RoutedEventArgs e) =>
+        RouteJournalPanel.Visibility = ToggleRouteJournal.IsChecked == true
+            ? Visibility.Visible
+            : Visibility.Collapsed;
 
     private void UpdateRouteQueueHint()
     {
@@ -481,7 +495,11 @@ public partial class MasterWindow : Window
 
     private void TryDeleteRegion(MapRegion region)
     {
-        if (MessageBox.Show(this, $"Удалить область «{region.Title}»?", "Удаление области",
+        var questHint = QuestMapHelper.IsRegionLinkedToQuests(_session, region.Id)
+            ? "\n\nОбласть указана в журнале квестов — проверьте записи после удаления."
+            : string.Empty;
+
+        if (MessageBox.Show(this, $"Удалить область «{region.Title}»?{questHint}", "Удаление области",
                 MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
 
@@ -495,11 +513,21 @@ public partial class MasterWindow : Window
     private void TryDeleteTarget(TargetMarker target)
     {
         var routesCount = _session.Routes.Count(r => r.TargetId == target.Id);
-        var message = routesCount > 0
-            ? $"Удалить цель «{target.Label}»?\n\nТакже будут удалены связанные маршруты ({routesCount})."
-            : $"Удалить цель «{target.Label}»?";
+        var questTitles = QuestMapHelper.GetQuestsForTarget(_session, target.Id)
+            .Select(q => q.Title)
+            .ToList();
 
-        if (MessageBox.Show(this, message, "Удаление цели",
+        var details = new List<string>();
+        if (routesCount > 0)
+            details.Add($"связанные маршруты ({routesCount})");
+        if (questTitles.Count > 0)
+            details.Add($"квесты: {string.Join(", ", questTitles)}");
+
+        var suffix = details.Count > 0
+            ? $"\n\nТакже затронуты: {string.Join("; ", details)}."
+            : string.Empty;
+
+        if (MessageBox.Show(this, $"Удалить цель «{target.Label}»?{suffix}", "Удаление цели",
                 MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
 
@@ -537,7 +565,6 @@ public partial class MasterWindow : Window
             {
                 _pathPointsImage.Add(imagePoint);
                 _session.DraftPath = BuildSmoothedPathWithEndpoints(_pathPointsImage);
-                MapView.Refresh();
             }
         }
         else if (_isDrawingRegion && e.LeftButton == MouseButtonState.Pressed)
@@ -551,7 +578,6 @@ public partial class MasterWindow : Window
             {
                 _regionPointsImage.Add(imagePoint);
                 _session.DraftRegionOutline = _regionPointsImage;
-                MapView.Refresh();
             }
         }
     }
@@ -591,7 +617,6 @@ public partial class MasterWindow : Window
         _pathPointsImage.Add(_session.GetNextRouteStartPoint());
         _pathPointsImage.Add(imagePoint);
         _session.DraftPath = BuildSmoothedPathWithEndpoints(_pathPointsImage);
-        MapView.Refresh();
     }
 
     private void FinishPathDrawing()
@@ -601,17 +626,13 @@ public partial class MasterWindow : Window
         {
             _session.DraftPath = [];
             _pathPointsImage.Clear();
-            MapView.Refresh();
             return;
         }
 
         _pathPointsImage[^1] = _session.SelectedTarget!.Position;
         var points = BuildSmoothedPathWithEndpoints(_pathPointsImage);
         if (points.Count < 2)
-        {
-            MapView.Refresh();
             return;
-        }
 
         var target = _session.SelectedTarget!;
         _session.AddRoute(new MovementRoute
@@ -625,7 +646,6 @@ public partial class MasterWindow : Window
         SyncRouteList();
         SwitchToNavigateTool();
         SelectNextTargetInOrder(target);
-        MapView.Refresh();
 
         if (_session.Targets.Count > 1 && _session.SelectedTarget is { } next)
             UpdateStatus($"Маршрут #{_session.Routes.Count} → «{target.Label}». Следующая цель: «{next.Label}».");
@@ -686,7 +706,6 @@ public partial class MasterWindow : Window
         _regionPointsImage.Clear();
         _regionPointsImage.Add(imagePoint);
         _session.DraftRegionOutline = _regionPointsImage;
-        MapView.Refresh();
     }
 
     private void FinishRegionDrawing()
@@ -697,7 +716,6 @@ public partial class MasterWindow : Window
         if (_regionPointsImage.Count < 2)
         {
             _regionPointsImage.Clear();
-            MapView.Refresh();
             return;
         }
 
@@ -707,7 +725,6 @@ public partial class MasterWindow : Window
         if (outline is null)
         {
             UpdateStatus("Область слишком мала — обведите больший контур.");
-            MapView.Refresh();
             return;
         }
 
@@ -716,10 +733,7 @@ public partial class MasterWindow : Window
             Owner = this
         };
         if (dialog.ShowDialog() != true)
-        {
-            MapView.Refresh();
             return;
-        }
 
         var newRegion = new MapRegion
         {
@@ -770,18 +784,24 @@ public partial class MasterWindow : Window
 
         if (!_session.HasMap)
         {
-            StatusText.Text = "Сначала загрузите карту — кнопка «Загрузить карту» вверху слева.";
+            StatusText.Text = "Сначала загрузите карту — кнопка «Карта» вверху слева.";
+            return;
+        }
+
+        if (ToggleQuestJournal.IsChecked == true && _currentTool == MasterTool.Navigate)
+        {
+            StatusText.Text = "Журнал квестов: выберите запись — связанные метки подсветятся. «Новый» — создать; «Активен», «К сдаче», «Выполнен» — сменить статус.";
             return;
         }
 
         StatusText.Text = _currentTool switch
         {
-            MasterTool.Navigate => "Обзор: клик — выбрать; двойной клик — редактировать; Delete — удалить. Колёсико — масштаб; ползунки или WASD/стрелки — сдвиг; ⊡ — исходный размер.",
-            MasterTool.PartyMarker => "Кликните на карте, чтобы поставить метку партии (синий щит).",
-            MasterTool.TargetMarker => "Кликните на карте — метка цели и окно для подписи (например, «Логово врага»).",
-            MasterTool.EncounterMarker => "Кликните на карте — создайте боевое столкновение (название и описание).",
-            MasterTool.DrawPath => "Зажмите кнопку и проведите маршрут к выбранной цели — линия сгладится. Отпустите — маршрут попадёт в очередь справа.",
-            MasterTool.DrawRegion => "Зажмите кнопку и обведите область — контур сгладится. Отпустите: заголовок, текст свитка и при желании «Показывать игрокам».",
+            MasterTool.Navigate => "Обзор: клик — выбрать; двойной клик — править; Delete — удалить. «Квесты» — журнал заданий. Колёсико — масштаб; WASD — сдвиг.",
+            MasterTool.PartyMarker => "Клик по карте — поставить или перенести метку партии (синий щит).",
+            MasterTool.TargetMarker => "Клик по карте — медальон цели и окно для подписи (например, «Логово врага»).",
+            MasterTool.EncounterMarker => "Клик по карте — боевое столкновение: название и описание для свитка.",
+            MasterTool.DrawPath => "Зажмите кнопку и проведите маршрут к выбранной цели. Отпустите — маршрут в очередь (кнопка «Маршруты»).",
+            MasterTool.DrawRegion => "Зажмите кнопку и обведите область. Отпустите: заголовок, текст свитка и «Показывать игрокам» при желании.",
             _ => string.Empty
         };
     }
@@ -809,7 +829,6 @@ public partial class MasterWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
-        _movement.MovementFrame -= OnMovementFrame;
         _movement.MovementStateChanged -= UpdateMoveButton;
         _session.EncounterTriggered -= OnEncounterTriggered;
         _movement.StopRenderLoop();

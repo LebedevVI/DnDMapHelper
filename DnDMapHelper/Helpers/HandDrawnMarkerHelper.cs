@@ -12,22 +12,38 @@ public static class HandDrawnMarkerHelper
     private static readonly SolidColorBrush GoldStrokeBright = new(Color.FromRgb(255, 210, 90));
     private static readonly SolidColorBrush ParchmentFill = new(Color.FromRgb(244, 228, 198));
 
-    public static Canvas CreateTargetMarker(Point center, bool isSelected, Guid targetId)
+    public static Canvas CreateTargetMarker(Point center, bool isSelected, Guid targetId, bool questHighlight = false)
     {
         var hash = targetId.GetHashCode();
         var wobble = (PseudoRandom(hash, 1) - 0.5) * 6;
+        var emphasized = isSelected || questHighlight;
 
         var root = new Canvas { IsHitTestVisible = false };
         root.RenderTransform = new RotateTransform(wobble, center.X, center.Y);
 
-        var ringSize = isSelected ? 30 : 26;
+        if (questHighlight)
+        {
+            var glowSize = emphasized ? 36 : 32;
+            var glow = new Ellipse
+            {
+                Width = glowSize,
+                Height = glowSize,
+                Fill = new SolidColorBrush(Color.FromArgb(55, 255, 220, 90)),
+                Stroke = GoldStrokeBright,
+                StrokeThickness = 2,
+                StrokeDashArray = [3, 2]
+            };
+            PlaceCentered(root, glow, center, glowSize, glowSize);
+        }
+
+        var ringSize = emphasized ? 30 : 26;
         var outerRing = new Ellipse
         {
             Width = ringSize,
             Height = ringSize,
             Fill = new SolidColorBrush(Color.FromArgb(225, 248, 236, 210)),
-            Stroke = isSelected ? GoldStrokeBright : GoldStroke,
-            StrokeThickness = isSelected ? 2.6 : 2.1
+            Stroke = emphasized ? GoldStrokeBright : GoldStroke,
+            StrokeThickness = emphasized ? 2.6 : 2.1
         };
         PlaceCentered(root, outerRing, center, ringSize, ringSize);
 
@@ -43,16 +59,16 @@ public static class HandDrawnMarkerHelper
         };
         PlaceCentered(root, innerRing, center, innerRingSize, innerRingSize);
 
-        var barFill = new SolidColorBrush(isSelected ? Color.FromRgb(186, 42, 18) : Color.FromRgb(148, 36, 16));
-        AddCrossBar(root, center, 45, barFill, OutlineStroke, isSelected);
-        AddCrossBar(root, center, -45, barFill, OutlineStroke, isSelected);
+        var barFill = new SolidColorBrush(emphasized ? Color.FromRgb(186, 42, 18) : Color.FromRgb(148, 36, 16));
+        AddCrossBar(root, center, 45, barFill, OutlineStroke, emphasized);
+        AddCrossBar(root, center, -45, barFill, OutlineStroke, emphasized);
 
-        var jewelSize = isSelected ? 7.5 : 6.5;
+        var jewelSize = emphasized ? 7.5 : 6.5;
         var jewel = new Ellipse
         {
             Width = jewelSize,
             Height = jewelSize,
-            Fill = new SolidColorBrush(isSelected ? Color.FromRgb(255, 220, 110) : Color.FromRgb(220, 170, 75)),
+            Fill = new SolidColorBrush(emphasized ? Color.FromRgb(255, 220, 110) : Color.FromRgb(220, 170, 75)),
             Stroke = OutlineStroke,
             StrokeThickness = 1.1
         };
@@ -60,6 +76,38 @@ public static class HandDrawnMarkerHelper
 
         AddCardinalTicks(root, center, ringSize * 0.5 + 1, OutlineStroke);
 
+        return root;
+    }
+
+    public static Canvas CreateQuestGiverBadge(Point center)
+    {
+        var root = new Canvas { IsHitTestVisible = false };
+        const double size = 20;
+
+        var badge = new Border
+        {
+            Width = size,
+            Height = size,
+            CornerRadius = new CornerRadius(10),
+            Background = new SolidColorBrush(Color.FromRgb(255, 214, 70)),
+            BorderBrush = OutlineStroke,
+            BorderThickness = new Thickness(1.2),
+            Child = new TextBlock
+            {
+                Text = "!",
+                FontFamily = new FontFamily("Georgia"),
+                FontWeight = FontWeights.Bold,
+                FontSize = 14,
+                Foreground = OutlineStroke,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, -2, 0, 0)
+            }
+        };
+
+        Canvas.SetLeft(badge, center.X - size / 2);
+        Canvas.SetTop(badge, center.Y - 36);
+        root.Children.Add(badge);
         return root;
     }
 

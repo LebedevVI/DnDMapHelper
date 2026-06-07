@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Media.Imaging;
+using DnDMapHelper.Helpers;
 using DnDMapHelper.Models;
 
 namespace DnDMapHelper.Services;
@@ -23,6 +24,8 @@ public sealed class GameSession : INotifyPropertyChanged
     private Point? _partyDisplayPosition;
     private int _selectedRouteIndex = -1;
     private IReadOnlyList<Point>? _activeMovementPath;
+    private List<Point>? _activeMovementFlatPath;
+    private double _activeMovementFlatPathLength;
     private Guid? _selectedEncounterId;
     private Guid? _pendingEncounterId;
     private double _pausedRouteProgress;
@@ -31,6 +34,7 @@ public sealed class GameSession : INotifyPropertyChanged
     {
         Routes.CollectionChanged += OnRoutesCollectionChanged;
         Regions.CollectionChanged += (_, _) => NotifyRegionsChanged();
+        Quests.CollectionChanged += (_, _) => NotifyQuestsChanged();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -71,6 +75,32 @@ public sealed class GameSession : INotifyPropertyChanged
 
     public ObservableCollection<MapRegion> Regions { get; } = [];
     public ObservableCollection<EncounterPoint> Encounters { get; } = [];
+    public ObservableCollection<Quest> Quests { get; } = [];
+
+    private Guid? _selectedQuestId;
+
+    public Guid? SelectedQuestId
+    {
+        get => _selectedQuestId;
+        set
+        {
+            if (_selectedQuestId == value)
+                return;
+
+            _selectedQuestId = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(SelectedQuest));
+            OnPropertyChanged(nameof(HasSelectedQuest));
+        }
+    }
+
+    public bool HasSelectedQuest =>
+        SelectedQuestId.HasValue && Quests.Any(q => q.Id == SelectedQuestId.Value);
+
+    public Quest? SelectedQuest =>
+        SelectedQuestId.HasValue
+            ? Quests.FirstOrDefault(q => q.Id == SelectedQuestId.Value)
+            : null;
 
     public Guid? SelectedTargetId
     {
@@ -194,6 +224,29 @@ public sealed class GameSession : INotifyPropertyChanged
 
     public IReadOnlyList<Point> ActiveMovementPath =>
         _activeMovementPath ?? ActiveRoute?.Points ?? [];
+
+    public void SelectQuest(Guid? id) => SelectedQuestId = id;
+
+    public void RecordQuestObjectiveVisit(Guid targetId)
+    {
+        var changed = false;
+        foreach (var quest in Quests)
+        {
+            if (quest.Status != QuestStatus.Active)
+                continue;
+            if (!quest.ObjectiveTargetIds.Contains(targetId))
+                continue;
+            if (quest.VisitedObjectiveTargetIds.Contains(targetId))
+                continue;
+
+            quest.VisitedObjectiveTargetIds.Add(targetId);
+            QuestMapHelper.TryPromoteQuestToReadyToTurnIn(quest);
+            changed = true;
+        }
+
+        if (changed)
+            NotifyQuestsChanged();
+    }
 
     public void SelectTarget(Guid id)
     {
@@ -326,6 +379,7 @@ public sealed class GameSession : INotifyPropertyChanged
         IsPartyMoving = false;
         _partyPathProgress = 0;
         _activeMovementPath = null;
+        ClearMovementPathCache();
         _pendingEncounterId = null;
         _pausedRouteProgress = 0;
         PartyDisplayPosition = PartyPosition;
@@ -359,10 +413,11 @@ public sealed class GameSession : INotifyPropertyChanged
         {
             _activeMovementPath = ActiveRoute!.Points.ToList();
             _partyPathProgress = 0;
+            RebuildMovementPathCache();
         }
 
         IsPartyMoving = true;
-        PartyDisplayPosition = Helpers.PathGeometryHelper.GetPointOnSmoothPath(_activeMovementPath!, _partyPathProgress);
+        PartyDisplayPosition = SampleActiveMovementPath(_partyPathProgress);
     }
 
     public void PausePartyMovement()
@@ -385,26 +440,58 @@ public sealed class GameSession : INotifyPropertyChanged
             return;
 
         _partyPathProgress = Math.Clamp(progress, 0, 1);
-        var currentPosition = Helpers.PathGeometryHelper.GetPointOnSmoothPath(path, _partyPathProgress);
+        var currentPosition = SampleActiveMovementPath(_partyPathProgress);
         PartyDisplayPosition = currentPosition;
+        TryRecordQuestObjectiveVisits(currentPosition);
 
         if (TryTriggerEncounter(currentPosition))
             return;
 
         if (_partyPathProgress >= 1)
         {
-            PartyPosition = Helpers.PathGeometryHelper.GetPointOnSmoothPath(path, 1);
+            PartyPosition = SampleActiveMovementPath(1);
             IsPartyMoving = false;
             _partyPathProgress = 0;
             _activeMovementPath = null;
+            ClearMovementPathCache();
             CompleteActiveRoute();
         }
+    }
+
+    private void RebuildMovementPathCache()
+    {
+        if (_activeMovementPath is not { Count: >= 2 } path)
+        {
+            ClearMovementPathCache();
+            return;
+        }
+
+        _activeMovementFlatPath = Helpers.PathGeometryHelper.FlattenSmoothPath(path).ToList();
+        _activeMovementFlatPathLength = Helpers.PathGeometryHelper.GetTotalLength(_activeMovementFlatPath);
+    }
+
+    private void ClearMovementPathCache()
+    {
+        _activeMovementFlatPath = null;
+        _activeMovementFlatPathLength = 0;
+    }
+
+    private Point SampleActiveMovementPath(double progress)
+    {
+        if (_activeMovementFlatPath is null || _activeMovementFlatPath.Count == 0)
+            return default;
+
+        var distance = _activeMovementFlatPathLength * Math.Clamp(progress, 0, 1);
+        return Helpers.PathGeometryHelper.GetPointAtDistance(_activeMovementFlatPath, distance);
     }
 
     private void CompleteActiveRoute()
     {
         if (Routes.Count == 0)
             return;
+
+        var completed = Routes[0];
+        RecordQuestObjectiveVisit(completed.TargetId);
 
         Routes.RemoveAt(0);
         RenumberRoutes();
@@ -415,6 +502,22 @@ public sealed class GameSession : INotifyPropertyChanged
             SelectedRouteIndex = 0;
 
         NotifyRoutesChanged();
+    }
+
+    private void TryRecordQuestObjectiveVisits(Point partyPosition)
+    {
+        const double visitDistance = 36;
+        var visitDistanceSq = visitDistance * visitDistance;
+
+        foreach (var target in Targets)
+        {
+            var dx = target.Position.X - partyPosition.X;
+            var dy = target.Position.Y - partyPosition.Y;
+            if (dx * dx + dy * dy > visitDistanceSq)
+                continue;
+
+            RecordQuestObjectiveVisit(target.Id);
+        }
     }
 
     private bool TryTriggerEncounter(Point partyPosition)
@@ -490,6 +593,8 @@ public sealed class GameSession : INotifyPropertyChanged
         OnPropertyChanged(nameof(SelectedRoute));
         OnPropertyChanged(nameof(SelectedRouteIndex));
     }
+
+    public void NotifyQuestsChanged() => OnPropertyChanged(nameof(Quests));
 
     public void NotifyTargetsChanged() => OnPropertyChanged(nameof(Targets));
 

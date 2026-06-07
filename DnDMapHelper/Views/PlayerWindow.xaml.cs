@@ -19,7 +19,6 @@ public partial class PlayerWindow : Window
         InitializeComponent();
         MapView.IsPlayerMode = true;
 
-        _movement.MovementFrame += OnMovementFrame;
         _session.PropertyChanged += OnSessionPropertyChanged;
 
         UpdateNoMapHint();
@@ -71,13 +70,12 @@ public partial class PlayerWindow : Window
     {
         if (e.PropertyName is nameof(GameSession.MapImage) or nameof(GameSession.HasMap))
             UpdateNoMapHint();
-        if (e.PropertyName is nameof(GameSession.Regions) or null)
+        if (e.PropertyName is nameof(GameSession.Regions) or nameof(GameSession.Quests)
+            or nameof(GameSession.SelectedQuestId) or null)
             RefreshMap();
     }
 
     public void RefreshMap() => MapView.Refresh();
-
-    private void OnMovementFrame() => RefreshMap();
 
     private void UpdateNoMapHint() =>
         NoMapHint.Visibility = _session.HasMap ? Visibility.Collapsed : Visibility.Visible;
@@ -91,6 +89,11 @@ public partial class PlayerWindow : Window
     private void CompactModeButton_Click(object sender, RoutedEventArgs e) => SetFullscreen(false);
 
     private void FullscreenModeButton_Click(object sender, RoutedEventArgs e) => SetFullscreen(true);
+
+    private void ToggleQuestJournal_Checked(object sender, RoutedEventArgs e) =>
+        QuestJournalPanel.Visibility = ToggleQuestJournal.IsChecked == true
+            ? Visibility.Visible
+            : Visibility.Collapsed;
 
     private void MapView_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
@@ -135,7 +138,6 @@ public partial class PlayerWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
-        _movement.MovementFrame -= OnMovementFrame;
         _movement.StopRenderLoop();
         _session.ResetPartyMovement();
         base.OnClosed(e);
