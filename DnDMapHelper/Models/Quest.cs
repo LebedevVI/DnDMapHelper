@@ -14,6 +14,32 @@ public sealed class Quest
     public List<Guid> RegionIds { get; set; } = [];
     public List<Guid> VisitedObjectiveTargetIds { get; set; } = [];
 
+    public Quest() { }
+
+    public Quest(
+        Guid id,
+        string title,
+        string conditions,
+        string description,
+        string reward,
+        QuestStatus status,
+        Guid? turnInTargetId,
+        List<Guid> objectiveTargetIds,
+        List<Guid> regionIds,
+        List<Guid> visitedObjectiveTargetIds)
+    {
+        Id = id;
+        Title = title;
+        Conditions = conditions;
+        Description = description;
+        Reward = reward;
+        Status = status;
+        TurnInTargetId = turnInTargetId;
+        ObjectiveTargetIds = objectiveTargetIds;
+        RegionIds = regionIds;
+        VisitedObjectiveTargetIds = visitedObjectiveTargetIds;
+    }
+
     public string StatusLabel => Status switch
     {
         QuestStatus.ReadyToTurnIn => "Готов к сдаче",

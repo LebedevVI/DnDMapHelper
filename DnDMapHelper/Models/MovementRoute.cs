@@ -10,6 +10,17 @@ public sealed class MovementRoute
     public string TargetLabel { get; set; } = string.Empty;
     public List<Point> Points { get; set; } = [];
 
+    public MovementRoute() { }
+
+    public MovementRoute(Guid id, int order, Guid targetId, string targetLabel, List<Point> points)
+    {
+        Id = id;
+        Order = order;
+        TargetId = targetId;
+        TargetLabel = targetLabel;
+        Points = points;
+    }
+
     public Point StartPoint => Points.Count > 0 ? Points[0] : default;
     public Point EndPoint => Points.Count > 0 ? Points[^1] : default;
 

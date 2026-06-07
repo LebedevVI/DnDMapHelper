@@ -17,8 +17,12 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <Button Content="Открыть" Style="{StaticResource FantasyCompactButton}"
+                            ToolTip="Открыть сохранённую карту (.dndmap)" Click="OpenSession_Click"/>
+                    <Button Content="Сохранить" Style="{StaticResource FantasyCompactButton}"
+                            ToolTip="Сохранить карту и все метки (.dndmap)" Click="SaveSession_Click"/>
                     <Button Content="Карта" Style="{StaticResource FantasyCompactButton}"
-                            ToolTip="Загрузить карту" Click="LoadMap_Click"/>
+                            ToolTip="Загрузить только изображение (сбросит метки)" Click="LoadMap_Click"/>
                     <Button Content="+" Style="{StaticResource FantasyCompactButton}" Width="28" Padding="0"
                             ToolTip="Приблизить карту" Click="ZoomIn_Click"/>
                     <Button Content="−" Style="{StaticResource FantasyCompactButton}" Width="28" Padding="0"

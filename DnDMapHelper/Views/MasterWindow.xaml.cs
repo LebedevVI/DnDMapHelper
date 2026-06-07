@@ -6,6 +6,7 @@ using System.Windows.Input;
 using System.Windows.Media.Imaging;
 using DnDMapHelper.Helpers;
 using DnDMapHelper.Models;
+using DnDMapHelper.Models.Persistence;
 using DnDMapHelper.Services;
 using Microsoft.Win32;
 
@@ -21,6 +22,7 @@ public partial class MasterWindow : Window
     private readonly List<Point> _regionPointsImage = [];
     private PlayerWindow? _playerWindow;
     private readonly PartyMovementController _movement = PartyMovementController.Current;
+    private string? _sessionFilePath;
 
     public MasterWindow()
     {
@@ -73,6 +75,9 @@ public partial class MasterWindow : Window
 
     private void LoadMap_Click(object sender, RoutedEventArgs e)
     {
+        if (!ConfirmDiscardSession("Загрузить новое изображение карты? Текущие метки и квесты будут удалены."))
+            return;
+
         var dialog = new OpenFileDialog
         {
             Filter = "Изображения|*.png;*.jpg;*.jpeg;*.bmp;*.gif|Все файлы|*.*",
@@ -89,7 +94,106 @@ public partial class MasterWindow : Window
         image.EndInit();
         image.Freeze();
 
+        ClearSessionState();
+        _sessionFilePath = null;
         _session.MapImage = image;
+        RefreshAfterSessionChange();
+        UpdateStatus("Карта загружена. Поставьте «Партия» и «Цель» — или откройте «Квесты», когда будете готовы.");
+    }
+
+    private void OpenSession_Click(object sender, RoutedEventArgs e)
+    {
+        if (!ConfirmDiscardSession("Открыть другой файл? Несохранённые изменения будут потеряны."))
+            return;
+
+        var dialog = new OpenFileDialog
+        {
+            Filter = SessionFileFormat.FileDialogFilter,
+            Title = "Открыть карту приключений"
+        };
+
+        if (dialog.ShowDialog() != true)
+            return;
+
+        try
+        {
+            if (_session.IsPartyMoving)
+                _movement.PauseMovement();
+
+            SessionPersistenceService.Load(_session, dialog.FileName);
+            _sessionFilePath = dialog.FileName;
+            RefreshAfterSessionChange();
+            UpdateStatus($"Открыто: {System.IO.Path.GetFileName(dialog.FileName)}");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Не удалось открыть файл",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void SaveSession_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_session.HasMap)
+        {
+            UpdateStatus("Сначала загрузите или откройте карту.");
+            return;
+        }
+
+        if (_session.IsPartyMoving)
+            _movement.PauseMovement();
+
+        if (_sessionFilePath is not null)
+        {
+            try
+            {
+                SessionPersistenceService.Save(_session, _sessionFilePath);
+                UpdateStatus($"Сохранено: {System.IO.Path.GetFileName(_sessionFilePath)}");
+                return;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "Не удалось сохранить",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+        }
+
+        var dialog = new SaveFileDialog
+        {
+            Filter = SessionFileFormat.FileDialogFilter,
+            Title = "Сохранить карту приключений",
+            DefaultExt = SessionFileFormat.Extension.TrimStart('.'),
+            FileName = "Карта приключений.dndmap"
+        };
+
+        if (dialog.ShowDialog() != true)
+            return;
+
+        try
+        {
+            SessionPersistenceService.Save(_session, dialog.FileName);
+            _sessionFilePath = dialog.FileName;
+            UpdateStatus($"Сохранено: {System.IO.Path.GetFileName(dialog.FileName)}");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Не удалось сохранить",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private bool ConfirmDiscardSession(string message)
+    {
+        if (!_session.HasMap && _session.Targets.Count == 0 && _session.Quests.Count == 0)
+            return true;
+
+        return MessageBox.Show(this, message, "Подтверждение",
+                   MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes;
+    }
+
+    private void ClearSessionState()
+    {
         _session.Targets.Clear();
         _session.Regions.Clear();
         _session.Encounters.Clear();
@@ -100,9 +204,16 @@ public partial class MasterWindow : Window
         _session.SelectedRegionId = null;
         _session.SelectedEncounterId = null;
         _session.SelectQuest(null);
+    }
+
+    private void RefreshAfterSessionChange()
+    {
         SyncRouteList();
+        MapView.ResetZoom();
         MapView.Refresh();
-        UpdateStatus("Карта загружена. Поставьте «Партия» и «Цель» — или откройте «Квесты», когда будете готовы.");
+        _playerWindow?.RefreshMap();
+        UpdateMoveButton();
+        UpdateRouteQueueHint();
     }
 
     private void ClearRoutes_Click(object sender, RoutedEventArgs e)

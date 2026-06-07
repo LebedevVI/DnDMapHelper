@@ -10,5 +10,16 @@ public sealed class MapRegion
     public string Title { get; set; } = "Описание земель";
     public bool VisibleToPlayers { get; set; }
 
+    public MapRegion() { }
+
+    public MapRegion(Guid id, List<Point> outline, string title, string description, bool visibleToPlayers)
+    {
+        Id = id;
+        Outline = outline;
+        Title = title;
+        Description = description;
+        VisibleToPlayers = visibleToPlayers;
+    }
+
     public Rect Bounds => Helpers.RegionGeometryHelper.GetBounds(Outline);
 }

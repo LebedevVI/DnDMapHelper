@@ -3,9 +3,11 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using DnDMapHelper.Helpers;
 using DnDMapHelper.Models;
+using DnDMapHelper.Models.Persistence;
 
 namespace DnDMapHelper.Services;
 
@@ -14,7 +16,7 @@ public sealed class GameSession : INotifyPropertyChanged
     private static readonly Lazy<GameSession> Instance = new(() => new GameSession());
     public static GameSession Current => Instance.Value;
 
-    private BitmapImage? _mapImage;
+    private BitmapSource? _mapImage;
     private Point? _partyPosition;
     private Guid? _selectedTargetId;
     private List<Point> _draftPath = [];
@@ -42,7 +44,7 @@ public sealed class GameSession : INotifyPropertyChanged
 
     public ObservableCollection<MovementRoute> Routes { get; } = [];
 
-    public BitmapImage? MapImage
+    public BitmapSource? MapImage
     {
         get => _mapImage;
         set { _mapImage = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasMap)); }
@@ -605,6 +607,93 @@ public sealed class GameSession : INotifyPropertyChanged
         OnPropertyChanged(nameof(Encounters));
         OnPropertyChanged(nameof(SelectedEncounter));
         OnPropertyChanged(nameof(HasSelectedEncounter));
+    }
+
+    public void ImportSaveData(SessionSaveData data, BitmapSource mapImage)
+    {
+        ResetPartyMovement();
+
+        MapImage = mapImage;
+        Targets.Clear();
+        Regions.Clear();
+        Encounters.Clear();
+        Routes.Clear();
+        Quests.Clear();
+        DraftPath = [];
+        DraftRegionOutline = [];
+
+        foreach (var dto in data.Targets)
+            Targets.Add(new TargetMarker(dto.Id, dto.Position.ToPoint(), dto.Label));
+
+        foreach (var dto in data.Regions)
+            Regions.Add(new MapRegion(
+                dto.Id,
+                dto.Outline.Select(p => p.ToPoint()).ToList(),
+                dto.Title,
+                dto.Description,
+                dto.VisibleToPlayers));
+
+        foreach (var dto in data.Encounters)
+            Encounters.Add(new EncounterPoint(
+                dto.Id,
+                dto.Position.ToPoint(),
+                dto.Title,
+                dto.Description));
+
+        foreach (var dto in data.Routes)
+            Routes.Add(new MovementRoute(
+                dto.Id,
+                dto.Order,
+                dto.TargetId,
+                dto.TargetLabel,
+                dto.Points.Select(p => p.ToPoint()).ToList()));
+
+        foreach (var dto in data.Quests)
+        {
+            if (!Enum.TryParse<QuestStatus>(dto.Status, out var status))
+                status = QuestStatus.Active;
+
+            Quests.Add(new Quest(
+                dto.Id,
+                dto.Title,
+                dto.Conditions,
+                dto.Description,
+                dto.Reward,
+                status,
+                dto.TurnInTargetId,
+                dto.ObjectiveTargetIds.ToList(),
+                dto.RegionIds.ToList(),
+                dto.VisitedObjectiveTargetIds.ToList()));
+        }
+
+        PartyPosition = data.PartyPosition?.ToPoint();
+        SelectedTargetId = ResolveSelection(data.SelectedTargetId, Targets.Select(t => t.Id));
+        SelectedRegionId = ResolveSelection(data.SelectedRegionId, Regions.Select(r => r.Id));
+        SelectedEncounterId = ResolveSelection(data.SelectedEncounterId, Encounters.Select(e => e.Id));
+        SelectQuest(ResolveSelection(data.SelectedQuestId, Quests.Select(q => q.Id)));
+
+        if (Routes.Count == 0)
+            SelectedRouteIndex = -1;
+        else
+            SelectedRouteIndex = Math.Clamp(data.SelectedRouteIndex, 0, Routes.Count - 1);
+
+        NotifyTargetsChanged();
+        NotifyRegionsChanged();
+        NotifyEncountersChanged();
+        NotifyRoutesChanged();
+        NotifyQuestsChanged();
+        OnPropertyChanged(nameof(HasMap));
+        OnPropertyChanged(nameof(HasPartyMarker));
+        OnPropertyChanged(nameof(CanStartMovement));
+        OnPropertyChanged(nameof(HasPausedMovement));
+    }
+
+    private static Guid? ResolveSelection(Guid? selectedId, IEnumerable<Guid> validIds)
+    {
+        if (!selectedId.HasValue)
+            return null;
+
+        return validIds.Contains(selectedId.Value) ? selectedId : null;
     }
 
     private void OnPropertyChanged([CallerMemberName] string? name = null) =>
