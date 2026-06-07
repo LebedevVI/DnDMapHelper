@@ -76,13 +76,23 @@
                 <TextBlock x:Name="StatusText" Grid.Column="0" FontSize="12" TextWrapping="Wrap"
                            VerticalAlignment="Center"
                            Foreground="{StaticResource InkBrush}" Margin="0,0,6,0"/>
-                <Button Grid.Column="1" Content="?"
-                        Style="{StaticResource FantasyCompactButton}"
-                        Width="32" Height="32"
-                        FontSize="16" FontWeight="Bold"
-                        Padding="0" VerticalAlignment="Center"
-                        ToolTip="Справка — как пользоваться программой"
-                        Click="HelpButton_Click"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11">
+                        <Hyperlink Click="AboutLink_Click"
+                                   Foreground="{StaticResource GoldBrush}"
+                                   TextDecorations="None"
+                                   ToolTip="О программе">
+                            О программе
+                        </Hyperlink>
+                    </TextBlock>
+                    <Button Content="?"
+                            Style="{StaticResource FantasyCompactButton}"
+                            Width="32" Height="32"
+                            FontSize="16" FontWeight="Bold"
+                            Padding="0"
+                            ToolTip="Справка — как пользоваться программой"
+                            Click="HelpButton_Click"/>
+                </StackPanel>
             </Grid>
         </Border>
 

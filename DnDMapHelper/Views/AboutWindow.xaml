@@ -1,0 +1,56 @@
+<Window x:Class="DnDMapHelper.Views.AboutWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="О программе"
+        Width="380" Height="420"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        Style="{StaticResource FantasyWindow}">
+    <Border Style="{StaticResource FantasyPanel}" Margin="12">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" x:Name="AppNameText" Style="{StaticResource FantasyTitle}"
+                       FontSize="20" Margin="0,0,0,4"/>
+            <TextBlock Grid.Row="1" x:Name="TaglineText" FontSize="13" FontStyle="Italic"
+                       Foreground="{StaticResource InkBrush}" Opacity="0.85"
+                       TextAlignment="Center" Margin="0,0,0,10"/>
+            <TextBlock Grid.Row="2" x:Name="VersionText" FontSize="11"
+                       Foreground="{StaticResource GoldBrush}" TextAlignment="Center"
+                       Margin="0,0,0,12"/>
+            <TextBlock Grid.Row="3" x:Name="SummaryText" FontSize="13" TextWrapping="Wrap"
+                       LineHeight="20" TextAlignment="Center"
+                       Foreground="{StaticResource InkBrush}" Margin="0,0,0,10"/>
+
+            <StackPanel Grid.Row="4" x:Name="HighlightsPanel" Margin="8,0"/>
+
+            <StackPanel Grid.Row="5" Margin="0,12,0,10" HorizontalAlignment="Center">
+                <TextBlock FontSize="12" Foreground="{StaticResource InkBrush}"
+                           TextAlignment="Center" Margin="0,0,0,4">
+                    <Run x:Name="ContactLabelRun"/>
+                    <LineBreak/>
+                    <Hyperlink x:Name="GitHubLink" Click="GitHubLink_Click"
+                               Foreground="{StaticResource GoldBrush}">
+                        <Run x:Name="GitHubDisplayRun"/>
+                    </Hyperlink>
+                </TextBlock>
+                <TextBlock x:Name="DedicationText" FontSize="11" FontStyle="Italic"
+                           TextWrapping="Wrap" TextAlignment="Center"
+                           LineHeight="16" Opacity="0.75"
+                           Foreground="{StaticResource InkBrush}" Margin="0,10,0,0"/>
+            </StackPanel>
+
+            <Button Grid.Row="6" Content="Закрыть" Style="{StaticResource FantasyButton}"
+                    HorizontalAlignment="Center" Padding="24,6"
+                    Click="Close_Click" IsDefault="True"/>
+        </Grid>
+    </Border>
+</Window>

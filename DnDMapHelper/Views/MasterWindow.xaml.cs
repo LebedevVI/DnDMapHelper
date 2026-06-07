@@ -190,6 +190,12 @@ public partial class MasterWindow : Window
         help.ShowDialog();
     }
 
+    private void AboutLink_Click(object sender, RoutedEventArgs e)
+    {
+        var about = new AboutWindow { Owner = this };
+        about.ShowDialog();
+    }
+
     private void OpenPlayer_Click(object sender, RoutedEventArgs e) => EnsurePlayerWindow(activateIfOpen: true);
 
     private void EnsurePlayerWindow(bool activateIfOpen = false)

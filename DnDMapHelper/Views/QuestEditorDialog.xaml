@@ -36,7 +36,8 @@
                              TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,0,0,14"/>
 
                     <TextBlock Text="Кому сдать:" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                    <ComboBox x:Name="TurnInCombo" DisplayMemberPath="Label" Margin="0,0,0,10"/>
+                    <ComboBox x:Name="TurnInCombo" DisplayMemberPath="Label"
+                              Style="{StaticResource FantasyComboBox}" Margin="0,0,0,10"/>
 
                     <TextBlock Text="Цели квеста (куда идти, с кем говорить):" FontWeight="SemiBold" Margin="0,0,0,4"/>
                     <ListBox x:Name="ObjectiveList" DisplayMemberPath="Label"

@@ -252,6 +252,165 @@
         </Setter>
     </Style>
 
+    <Style x:Key="FantasyComboBoxItem" TargetType="ComboBoxItem">
+        <Setter Property="SnapsToDevicePixels" Value="True"/>
+        <Setter Property="Padding" Value="8,6"/>
+        <Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
+        <Setter Property="FontFamily" Value="{StaticResource FantasyBodyFont}"/>
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBoxItem">
+                    <Border x:Name="Bd" Padding="{TemplateBinding Padding}"
+                            Background="Transparent"
+                            BorderBrush="Transparent"
+                            BorderThickness="1"
+                            CornerRadius="2">
+                        <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#66E8D4A8"/>
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="#998B6914"/>
+                        </Trigger>
+                        <Trigger Property="IsHighlighted" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#88C9A86C"/>
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource LeatherBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#AAC9A86C"/>
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource LeatherBrush}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="FantasyComboBoxToggleButton" TargetType="ToggleButton">
+        <Setter Property="OverridesDefaultStyle" Value="True"/>
+        <Setter Property="Focusable" Value="False"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border x:Name="arrowBorder"
+                            Background="{StaticResource LeatherButtonBrush}"
+                            BorderBrush="{StaticResource LeatherBrush}"
+                            BorderThickness="1,0,0,0"
+                            CornerRadius="0,2,2,0">
+                        <Path x:Name="arrow"
+                              Data="M 0,0 L 4,4 L 8,0 Z"
+                              Fill="#FAF0D0"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Center"
+                              Margin="0,1,0,0"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="arrowBorder" Property="Background">
+                                <Setter.Value>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                        <GradientStop Color="#9A6840" Offset="0"/>
+                                        <GradientStop Color="#6B4528" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Setter.Value>
+                            </Setter>
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="arrowBorder" Property="Background" Value="#8B6914"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="FantasyComboBox" TargetType="ComboBox">
+        <Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
+        <Setter Property="FontFamily" Value="{StaticResource FantasyBodyFont}"/>
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="Padding" Value="8,6"/>
+        <Setter Property="MinHeight" Value="36"/>
+        <Setter Property="BorderBrush" Value="{StaticResource LeatherBrush}"/>
+        <Setter Property="BorderThickness" Value="2"/>
+        <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto"/>
+        <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
+        <Setter Property="ItemContainerStyle" Value="{StaticResource FantasyComboBoxItem}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBox">
+                    <Grid SnapsToDevicePixels="True">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="28"/>
+                        </Grid.ColumnDefinitions>
+
+                        <Border x:Name="border"
+                                Grid.ColumnSpan="2"
+                                Background="{StaticResource InputParchmentBrush}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="3"/>
+
+                        <ContentPresenter Grid.Column="0"
+                                          Margin="{TemplateBinding Padding}"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                          Content="{TemplateBinding SelectionBoxItem}"
+                                          ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                          ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                                          ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"
+                                          IsHitTestVisible="False"
+                                          SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
+
+                        <ToggleButton Grid.Column="1"
+                                      Style="{StaticResource FantasyComboBoxToggleButton}"
+                                      IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                      ClickMode="Press"/>
+
+                        <Popup x:Name="PART_Popup"
+                               AllowsTransparency="True"
+                               Placement="Bottom"
+                               IsOpen="{TemplateBinding IsDropDownOpen}"
+                               Focusable="False"
+                               PopupAnimation="Slide">
+                            <Border x:Name="dropDownBorder"
+                                    MinWidth="{TemplateBinding ActualWidth}"
+                                    MaxHeight="{TemplateBinding MaxDropDownHeight}"
+                                    Background="{StaticResource ScrollBackgroundBrush}"
+                                    BorderBrush="{StaticResource LeatherBrush}"
+                                    BorderThickness="2"
+                                    CornerRadius="3"
+                                    Margin="0,2,0,0"
+                                    Padding="2">
+                                <ScrollViewer SnapsToDevicePixels="True"
+                                              HorizontalScrollBarVisibility="{TemplateBinding ScrollViewer.HorizontalScrollBarVisibility}"
+                                              VerticalScrollBarVisibility="{TemplateBinding ScrollViewer.VerticalScrollBarVisibility}">
+                                    <ItemsPresenter SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"
+                                                    KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                </ScrollViewer>
+                            </Border>
+                        </Popup>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsFocused" Value="True">
+                            <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource InputFocusBorderBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsDropDownOpen" Value="True">
+                            <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource InputFocusBorderBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="border" Property="Opacity" Value="0.55"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <LinearGradientBrush x:Key="ScrollTrackBrush" StartPoint="0,0" EndPoint="1,0">
         <GradientStop Color="#E0CC98" Offset="0"/>
         <GradientStop Color="#C9A86C" Offset="0.5"/>
@@ -391,6 +550,8 @@
 
     <!-- Глобальные стили по умолчанию -->
     <Style TargetType="TextBox" BasedOn="{StaticResource FantasyTextBox}"/>
+    <Style TargetType="ComboBox" BasedOn="{StaticResource FantasyComboBox}"/>
+    <Style TargetType="ComboBoxItem" BasedOn="{StaticResource FantasyComboBoxItem}"/>
     <Style TargetType="ScrollBar" BasedOn="{StaticResource FantasyScrollBar}"/>
     <Style TargetType="ListBox" BasedOn="{StaticResource FantasyListBox}"/>
     <Style TargetType="ListBoxItem" BasedOn="{StaticResource FantasyListBoxItem}"/>
