@@ -7,6 +7,7 @@ public static class AboutContent
     public const string WindowTitle = "О программе";
     public const string AppName = "Карта приключений";
     public const string Tagline = "Помощник мастера для игры по карте";
+    public const string DisplayVersion = "0.99beta";
     public const string Summary =
         "Карта у мастера, экран для игроков — метки, маршруты, квесты и свитки с описаниями.";
     public const string ContactLabel = "По всем вопросам:";
@@ -26,8 +27,18 @@ public static class AboutContent
     {
         get
         {
-            var version = Assembly.GetExecutingAssembly().GetName().Version;
-            return version is null ? "Версия 1.0" : $"Версия {version.Major}.{version.Minor}";
+            var info = Assembly.GetExecutingAssembly()
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+                ?.InformationalVersion;
+
+            if (!string.IsNullOrWhiteSpace(info))
+            {
+                var plus = info.IndexOf('+');
+                var label = plus >= 0 ? info[..plus] : info;
+                return $"Версия {label}";
+            }
+
+            return $"Версия {DisplayVersion}";
         }
     }
 }
