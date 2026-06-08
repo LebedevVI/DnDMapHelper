@@ -691,10 +691,10 @@ public partial class MasterWindow : Window
                 return;
 
             if (_regionPointsImage.Count == 0 ||
-                Distance(_regionPointsImage[^1], imagePoint) > 4)
+                Distance(_regionPointsImage[^1], imagePoint) > PathGeometryHelper.DefaultCaptureMinDistance)
             {
                 _regionPointsImage.Add(imagePoint);
-                _session.DraftRegionOutline = _regionPointsImage;
+                _session.DraftRegionOutline = RegionGeometryHelper.PrepareDraftOutline(_regionPointsImage);
             }
         }
     }

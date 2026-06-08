@@ -499,13 +499,25 @@ public partial class MapCanvas : UserControl
         if (imageOutline.Count < 2)
             return;
 
-        TransformPointsToCanvas(imageOutline, scale, _scratchCanvasPoints);
-        var geometry = _scratchCanvasPoints.Count >= 3
-            ? RegionGeometryHelper.CreateClosedSmoothPath(_scratchCanvasPoints)
-            : PathGeometryHelper.CreateSmoothPath(_scratchCanvasPoints);
+        var outlinePoints = isDraft
+            ? RegionGeometryHelper.PrepareDraftOutline(imageOutline)
+            : imageOutline;
+        TransformPointsToCanvas(outlinePoints, scale, _scratchCanvasPoints);
+        var geometry = isDraft
+            ? _scratchCanvasPoints.Count >= 3
+                ? RegionGeometryHelper.CreateClosedSmoothPath(_scratchCanvasPoints)
+                : PathGeometryHelper.CreateSmoothPath(_scratchCanvasPoints)
+            : _scratchCanvasPoints.Count >= 3
+                ? RegionGeometryHelper.CreateClosedSmoothPath(_scratchCanvasPoints)
+                : PathGeometryHelper.CreateSmoothPath(_scratchCanvasPoints);
+
+        const double draftFade = 0.75;
+        const byte regionFillAlpha = 60;
+        const byte regionStrokeAlpha = 255;
+        var regionStrokeRgb = Color.FromRgb(139, 105, 20);
 
         var fill = isDraft
-            ? new SolidColorBrush(Color.FromArgb(45, 201, 168, 108))
+            ? new SolidColorBrush(Color.FromArgb((byte)(regionFillAlpha * draftFade), 201, 168, 108))
             : questHighlight
                 ? new SolidColorBrush(Color.FromArgb(95, 255, 220, 120))
                 : forPlayerDisplay || HighlightRegions
@@ -516,19 +528,24 @@ public partial class MapCanvas : UserControl
         {
             Data = geometry,
             Fill = fill,
-            Stroke = new SolidColorBrush(isSelected
-                ? Color.FromRgb(139, 37, 0)
-                : questHighlight
-                    ? Color.FromRgb(210, 160, 40)
-                    : forPlayerDisplay
-                        ? Color.FromRgb(160, 120, 35)
-                        : Color.FromRgb(139, 105, 20)),
-            StrokeThickness = isSelected ? 3 : questHighlight || forPlayerDisplay || HighlightRegions || isDraft ? 2.5 : 1.5,
-            StrokeDashArray = isSelected || HighlightRegions || isDraft || forPlayerDisplay || questHighlight
-                ? null
-                : RegionDashPattern
+            Stroke = isDraft
+                ? new SolidColorBrush(Color.FromArgb((byte)(regionStrokeAlpha * draftFade), regionStrokeRgb.R, regionStrokeRgb.G, regionStrokeRgb.B))
+                : new SolidColorBrush(isSelected
+                    ? Color.FromRgb(139, 37, 0)
+                    : questHighlight
+                        ? Color.FromRgb(210, 160, 40)
+                        : forPlayerDisplay
+                            ? Color.FromRgb(160, 120, 35)
+                            : regionStrokeRgb),
+            StrokeThickness = isSelected ? 3 : isDraft ? 2.5 * draftFade : questHighlight || forPlayerDisplay || HighlightRegions ? 2.5 : 1.5,
+            StrokeDashArray = isDraft
+                ? RegionDashPattern
+                : isSelected || HighlightRegions || forPlayerDisplay || questHighlight
+                    ? null
+                    : RegionDashPattern
         };
-        StaticOverlayCanvas.Children.Add(shape);
+        var targetCanvas = isDraft ? DynamicOverlayCanvas : StaticOverlayCanvas;
+        targetCanvas.Children.Add(shape);
 
         if (!string.IsNullOrWhiteSpace(title) && imageOutline.Count >= 1)
         {

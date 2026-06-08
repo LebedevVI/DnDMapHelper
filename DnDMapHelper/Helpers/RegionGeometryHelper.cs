@@ -8,6 +8,15 @@ public static class RegionGeometryHelper
     private const int MinimumOutlinePoints = 3;
     private const double MinimumBoundsSize = 12;
 
+    /// <summary>Предпросмотр контура при рисовании: прореживание и сглаживание без замыкания.</summary>
+    public static List<Point> PrepareDraftOutline(IReadOnlyList<Point> rawPoints)
+    {
+        if (rawPoints.Count < 2)
+            return rawPoints.ToList();
+
+        return PathGeometryHelper.PrepareOpenPolyline(rawPoints, captureMinDistance: 8, simplifyTolerance: 22);
+    }
+
     /// <summary>Собирает контур из сырых точек мыши: прореживание, упрощение, замыкание.</summary>
     public static List<Point>? PrepareOutline(IReadOnlyList<Point> rawPoints)
     {
