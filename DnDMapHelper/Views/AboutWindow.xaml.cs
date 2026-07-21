@@ -20,7 +20,7 @@ public partial class AboutWindow : Window
         VersionText.Text = AboutContent.VersionLabel;
         SummaryText.Text = AboutContent.Summary;
         ContactLabelRun.Text = AboutContent.ContactLabel + " ";
-        GitHubDisplayRun.Text = AboutContent.GitHubDisplay;
+        ContactDisplayRun.Text = AboutContent.ContactEmail;
         DedicationText.Text = AboutContent.Dedication;
         BuildHighlights();
     }
@@ -60,9 +60,9 @@ public partial class AboutWindow : Window
         }
     }
 
-    private void GitHubLink_Click(object sender, RoutedEventArgs e)
+    private void ContactLink_Click(object sender, RoutedEventArgs e)
     {
-        Process.Start(new ProcessStartInfo(AboutContent.GitHubUrl) { UseShellExecute = true });
+        Process.Start(new ProcessStartInfo(AboutContent.ContactEmailUrl) { UseShellExecute = true });
     }
 
     private void Close_Click(object sender, RoutedEventArgs e) => Close();

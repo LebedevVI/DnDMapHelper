@@ -11,8 +11,8 @@ public static class AboutContent
     public const string Summary =
         "Карта у мастера, экран для игроков — метки, маршруты, квесты и свитки с описаниями.";
     public const string ContactLabel = "По всем вопросам:";
-    public const string GitHubUrl = "https://github.com/LebedevVI";
-    public const string GitHubDisplay = "github.com/LebedevVI";
+    public const string ContactEmail = "dndtools.lebedev@proton.me";
+    public const string ContactEmailUrl = "mailto:dndtools.lebedev@proton.me";
     public const string Dedication =
         "Посвящается моему другу и прекрасному разработчику MinaSpero, без чьих идей этой программы скорее всего не существовало бы.";
 

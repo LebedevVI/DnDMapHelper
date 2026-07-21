@@ -37,9 +37,9 @@
                            TextAlignment="Center" Margin="0,0,0,4">
                     <Run x:Name="ContactLabelRun"/>
                     <LineBreak/>
-                    <Hyperlink x:Name="GitHubLink" Click="GitHubLink_Click"
+                    <Hyperlink x:Name="ContactLink" Click="ContactLink_Click"
                                Foreground="{StaticResource GoldBrush}">
-                        <Run x:Name="GitHubDisplayRun"/>
+                        <Run x:Name="ContactDisplayRun"/>
                     </Hyperlink>
                 </TextBlock>
                 <TextBlock x:Name="DedicationText" FontSize="11" FontStyle="Italic"
