@@ -34,6 +34,7 @@
         <Setter Property="Background" Value="{StaticResource ScrollBackgroundBrush}"/>
         <Setter Property="FontFamily" Value="{StaticResource FantasyBodyFont}"/>
         <Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
+        <Setter Property="Icon" Value="pack://application:,,,/Images/app.ico"/>
     </Style>
 
     <Style x:Key="FantasyPanel" TargetType="Border">

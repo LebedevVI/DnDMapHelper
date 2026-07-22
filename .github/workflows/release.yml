@@ -1,0 +1,76 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version without v prefix (e.g. 0.99.0). Used only for workflow_dispatch."
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Resolve version
+        id: version
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          if ("${{ github.event_name }}" -eq "workflow_dispatch" -and "${{ inputs.version }}".Trim()) {
+            $ver = "${{ inputs.version }}".Trim().TrimStart("v")
+          }
+          elseif ($tag -match '^v') {
+            $ver = $tag.Substring(1)
+          }
+          else {
+            [xml]$csproj = Get-Content "DnDMapHelper/DnDMapHelper.csproj"
+            $ver = @($csproj.Project.PropertyGroup.Version | Where-Object { $_ })[0]
+          }
+          if (-not $ver) { throw "Could not resolve version" }
+          "version=$ver" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "tag=v$ver" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Host "Release version: $ver"
+
+      - name: Publish self-contained win-x64
+        shell: pwsh
+        run: |
+          ./scripts/publish-release.ps1 -Version "${{ steps.version.outputs.version }}"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: DnDMapHelper ${{ steps.version.outputs.tag }}
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.version, 'beta') || contains(steps.version.outputs.version, 'alpha') || contains(steps.version.outputs.version, 'rc') }}
+          files: artifacts/DnDMapHelper-v${{ steps.version.outputs.version }}-win-x64.zip
+          body: |
+            ## Скачать и запустить
+
+            1. Скачайте архив `DnDMapHelper-v${{ steps.version.outputs.version }}-win-x64.zip`
+            2. Распакуйте в любую папку
+            3. Запустите `DnDMapHelper.exe`
+
+            Установка .NET **не нужна** (сборка self-contained).
+
+            **Требования:** Windows 10/11 (x64)
+
+            Вопросы и предложения: [dndtools.lebedev@proton.me](mailto:dndtools.lebedev@proton.me)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

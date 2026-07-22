@@ -5,6 +5,7 @@
         Title="Экран игры"
         WindowState="Maximized"
         WindowStyle="None"
+        Icon="pack://application:,,,/Images/app.ico"
         Background="#0D0804"
         KeyDown="Window_KeyDown">
     <Grid>

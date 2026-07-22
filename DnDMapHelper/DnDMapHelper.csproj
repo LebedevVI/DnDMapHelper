@@ -6,9 +6,14 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <ApplicationIcon>Images\app.ico</ApplicationIcon>
     <Version>0.99.0</Version>
     <InformationalVersion>0.99beta</InformationalVersion>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Images\app.ico" />
+  </ItemGroup>
 
   <ItemGroup>
     <None Remove="Images\DM_view.png" />
