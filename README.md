@@ -117,7 +117,7 @@ DnDMapHelper объединяет всё это в одном приложени
 
 ## Экран игроков
 
-![Экран игроков](DnDMapHelper/Player_view.png)
+![Экран игроков](DnDMapHelper/Images/Player_view.png)
 
 ## Маршруты
 
