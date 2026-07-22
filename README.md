@@ -129,7 +129,7 @@ DnDMapHelper объединяет всё это в одном приложени
 
 ## Описание области
 
-![Области](DnDMapHelper/Images/Area_create.png))
+![Области](DnDMapHelper/Images/Region.png))
 
 
 
