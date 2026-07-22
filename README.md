@@ -113,23 +113,23 @@ DnDMapHelper объединяет всё это в одном приложени
 
 ## Главное окно
 
-![Экран мастера](Images/DM_view.png)
+![Экран мастера](DnDMapHelper/Images/DM_view.png)
 
 ## Экран игроков
 
-![Экран игроков](Images/Player_view.png)
+![Экран игроков](DnDMapHelper/Player_view.png)
 
 ## Маршруты
 
-![Маршруты](Images/Route_create.png)
+![Маршруты](DnDMapHelper/Images/Route_create.png)
 
 ## Квесты
 
-![Квесты](Images/Quest_create.png)
+![Квесты](DnDMapHelper/Images/Quest_create.png)
 
 ## Описание области
 
-![Области](Images/Area_create.png))
+![Области](DnDMapHelper/Images/Area_create.png))
 
 
 
