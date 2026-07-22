@@ -40,7 +40,10 @@ public partial class MasterWindow : Window
         UpdateMoveButton();
         _session.PropertyChanged += (_, e) =>
         {
-            UpdateStatus();
+            // PartyDisplayPosition updates every animation frame — skip status rebuild.
+            if (e.PropertyName is not nameof(GameSession.PartyDisplayPosition))
+                UpdateStatus();
+
             if (e.PropertyName is nameof(GameSession.Routes) or nameof(GameSession.SelectedRouteIndex))
                 UpdateRouteQueueHint();
             if (e.PropertyName is nameof(GameSession.Routes)
@@ -218,10 +221,12 @@ public partial class MasterWindow : Window
 
     private void ClearRoutes_Click(object sender, RoutedEventArgs e)
     {
+        _movement.StopRenderLoop();
         _session.ClearAllRoutes();
-        _pathPointsImage.Clear();
+        ClearPathDraft();
         SyncRouteList();
         MapView.Refresh();
+        UpdateMoveButton();
         UpdateStatus("Очередь маршрутов очищена.");
     }
 
@@ -230,9 +235,14 @@ public partial class MasterWindow : Window
         if (RouteList.SelectedIndex < 0)
             return;
 
+        var removingActive = RouteList.SelectedIndex == 0;
+        if (removingActive)
+            _movement.StopRenderLoop();
+
         _session.RemoveRouteAt(RouteList.SelectedIndex);
         SyncRouteList();
         MapView.Refresh();
+        UpdateMoveButton();
         UpdateRouteQueueHint();
     }
 
@@ -421,7 +431,8 @@ public partial class MasterWindow : Window
                 break;
 
             case MasterTool.DrawPath:
-                StartPathDrawing(imagePoint);
+                if (!TryStartPathDrawing(imagePoint))
+                    break;
                 MapView.CaptureMouse();
                 e.Handled = true;
                 break;
@@ -704,29 +715,33 @@ public partial class MasterWindow : Window
         if (_isDrawingPath)
         {
             FinishPathDrawing();
-            MapView.ReleaseMouseCapture();
+            ReleaseMapMouseCapture();
             e.Handled = true;
         }
         else if (_isDrawingRegion)
         {
             FinishRegionDrawing();
-            MapView.ReleaseMouseCapture();
+            ReleaseMapMouseCapture();
             e.Handled = true;
+        }
+        else if (MapView.IsMouseCaptured)
+        {
+            ReleaseMapMouseCapture();
         }
     }
 
-    private void StartPathDrawing(Point imagePoint)
+    private bool TryStartPathDrawing(Point imagePoint)
     {
         if (!_session.HasPartyMarker)
         {
             UpdateStatus("Сначала установите метку партии.");
-            return;
+            return false;
         }
 
         if (!_session.HasSelectedTarget)
         {
-            UpdateStatus("Выберите или добавьте метку цели (клик в режиме «Обзор»).");
-            return;
+            UpdateStatus("Выберите цель в режиме «Обзор», затем снова нажмите «Путь».");
+            return false;
         }
 
         _isDrawingPath = true;
@@ -734,6 +749,7 @@ public partial class MasterWindow : Window
         _pathPointsImage.Add(_session.GetNextRouteStartPoint());
         _pathPointsImage.Add(imagePoint);
         _session.DraftPath = BuildSmoothedPathWithEndpoints(_pathPointsImage);
+        return true;
     }
 
     private void FinishPathDrawing()
@@ -741,15 +757,17 @@ public partial class MasterWindow : Window
         _isDrawingPath = false;
         if (!_session.HasSelectedTarget || _pathPointsImage.Count < 2)
         {
-            _session.DraftPath = [];
-            _pathPointsImage.Clear();
+            ClearPathDraft();
             return;
         }
 
         _pathPointsImage[^1] = _session.SelectedTarget!.Position;
         var points = BuildSmoothedPathWithEndpoints(_pathPointsImage);
         if (points.Count < 2)
+        {
+            ClearPathDraft();
             return;
+        }
 
         var target = _session.SelectedTarget!;
         _session.AddRoute(new MovementRoute
@@ -759,7 +777,7 @@ public partial class MasterWindow : Window
             Points = points
         });
 
-        _pathPointsImage.Clear();
+        ClearPathDraft();
         SyncRouteList();
         SwitchToNavigateTool();
         SelectNextTargetInOrder(target);
@@ -871,8 +889,23 @@ public partial class MasterWindow : Window
     {
         _isDrawingPath = false;
         _isDrawingRegion = false;
+        _pathPointsImage.Clear();
         _regionPointsImage.Clear();
+        _session.DraftPath = [];
         _session.DraftRegionOutline = [];
+        ReleaseMapMouseCapture();
+    }
+
+    private void ClearPathDraft()
+    {
+        _pathPointsImage.Clear();
+        _session.DraftPath = [];
+    }
+
+    private void ReleaseMapMouseCapture()
+    {
+        if (MapView.IsMouseCaptured)
+            MapView.ReleaseMouseCapture();
     }
 
     private bool IsPointOnMap(Point imagePoint)
@@ -917,7 +950,9 @@ public partial class MasterWindow : Window
             MasterTool.PartyMarker => "Клик по карте — поставить или перенести метку партии (синий щит).",
             MasterTool.TargetMarker => "Клик по карте — медальон цели и окно для подписи (например, «Логово врага»).",
             MasterTool.EncounterMarker => "Клик по карте — боевое столкновение: название и описание для свитка.",
-            MasterTool.DrawPath => "Зажмите кнопку и проведите маршрут к выбранной цели. Отпустите — маршрут в очередь (кнопка «Маршруты»).",
+            MasterTool.DrawPath => _session.HasSelectedTarget
+                ? "Зажмите кнопку и проведите маршрут к выбранной цели. Отпустите — маршрут в очередь (кнопка «Маршруты»)."
+                : "Сначала выберите цель в режиме «Обзор», затем снова нажмите «Путь».",
             MasterTool.DrawRegion => "Зажмите кнопку и обведите область. Отпустите: заголовок, текст свитка и «Показывать игрокам» при желании.",
             _ => string.Empty
         };

@@ -107,7 +107,14 @@ public sealed class GameSession : INotifyPropertyChanged
     public Guid? SelectedTargetId
     {
         get => _selectedTargetId;
-        set { _selectedTargetId = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasSelectedTarget)); }
+        set
+        {
+            if (_selectedTargetId == value)
+                return;
+            _selectedTargetId = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasSelectedTarget));
+        }
     }
 
     public bool HasSelectedTarget =>
@@ -125,6 +132,8 @@ public sealed class GameSession : INotifyPropertyChanged
         get => _selectedRegionId;
         set
         {
+            if (_selectedRegionId == value)
+                return;
             _selectedRegionId = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(SelectedRegion));
@@ -146,6 +155,8 @@ public sealed class GameSession : INotifyPropertyChanged
         get => _selectedEncounterId;
         set
         {
+            if (_selectedEncounterId == value)
+                return;
             _selectedEncounterId = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(SelectedEncounter));
@@ -354,12 +365,29 @@ public sealed class GameSession : INotifyPropertyChanged
         if (index < 0 || index >= Routes.Count)
             return;
 
+        var removedActiveSlot = index == 0;
         Routes.RemoveAt(index);
         RenumberRoutes();
+
+        // Active/paused movement always follows queue slot 0 — dropping it invalidates the walk.
+        if (removedActiveSlot && (IsPartyMoving || _activeMovementPath is not null))
+        {
+            _pendingEncounterId = null;
+            _pausedRouteProgress = 0;
+            ResetPartyMovement();
+        }
+        else if (Routes.Count == 0 && (IsPartyMoving || _activeMovementPath is not null))
+        {
+            _pendingEncounterId = null;
+            _pausedRouteProgress = 0;
+            ResetPartyMovement();
+        }
+
         if (Routes.Count == 0)
             SelectedRouteIndex = -1;
         else if (SelectedRouteIndex >= Routes.Count)
             SelectedRouteIndex = Routes.Count - 1;
+
         NotifyRoutesChanged();
     }
 

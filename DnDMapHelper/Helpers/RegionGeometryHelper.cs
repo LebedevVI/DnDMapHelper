@@ -74,6 +74,10 @@ public static class RegionGeometryHelper
         if (outline.Count < 3)
             return false;
 
+        var bounds = GetBounds(outline);
+        if (!bounds.Contains(testPoint))
+            return false;
+
         var geometry = CreateClosedSmoothPath(outline);
         return geometry.FillContains(testPoint);
     }

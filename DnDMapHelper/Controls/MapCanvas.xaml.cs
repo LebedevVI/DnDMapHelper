@@ -363,7 +363,7 @@ public partial class MapCanvas : UserControl
 
         if (MapScrollViewer.ViewportWidth <= 0 || MapScrollViewer.ViewportHeight <= 0)
         {
-            Dispatcher.BeginInvoke(ProcessScheduledRedraw, DispatcherPriority.Loaded);
+            // Keep dirty flags; SizeChanged will schedule a redraw. Do not spin the dispatcher.
             return;
         }
 
