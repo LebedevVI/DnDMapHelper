@@ -10,4 +10,22 @@
     <InformationalVersion>0.99beta</InformationalVersion>
   </PropertyGroup>
 
+  <ItemGroup>
+    <None Remove="Images\DM_view.png" />
+    <None Remove="Images\Player_view.png" />
+    <None Remove="Images\Quest_create.png" />
+    <None Remove="Images\Region.png" />
+    <None Remove="Images\Route_create.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Images\DM_view.png" />
+    <EmbeddedResource Include="Images\Player_view.png" />
+    <EmbeddedResource Include="Images\Quest_create.png" />
+    <EmbeddedResource Include="Images\Region.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Images\Route_create.png" />
+  </ItemGroup>
+
 </Project>
