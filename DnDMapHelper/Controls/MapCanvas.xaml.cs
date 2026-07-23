@@ -554,14 +554,10 @@ public partial class MapCanvas : UserControl
         if (imageOutline.Count < 2)
             return;
 
-        var outlinePoints = isDraft
-            ? RegionGeometryHelper.PrepareDraftOutline(imageOutline)
-            : imageOutline;
-        TransformPointsToCanvas(outlinePoints, scale, _scratchCanvasPoints);
+        // Draft outline is already prepared by MasterWindow; final regions use stored outline as-is.
+        TransformPointsToCanvas(imageOutline, scale, _scratchCanvasPoints);
         var geometry = isDraft
-            ? _scratchCanvasPoints.Count >= 3
-                ? RegionGeometryHelper.CreateClosedSmoothPath(_scratchCanvasPoints)
-                : PathGeometryHelper.CreateSmoothPath(_scratchCanvasPoints)
+            ? PathGeometryHelper.CreatePolylinePath(_scratchCanvasPoints)
             : _scratchCanvasPoints.Count >= 3
                 ? RegionGeometryHelper.CreateClosedSmoothPath(_scratchCanvasPoints)
                 : PathGeometryHelper.CreateSmoothPath(_scratchCanvasPoints);
@@ -659,7 +655,9 @@ public partial class MapCanvas : UserControl
         else
         {
             TransformPointsToCanvas(imagePoints, scale, _scratchCanvasPoints);
-            geometry = PathGeometryHelper.CreateSmoothPath(_scratchCanvasPoints);
+            geometry = isDraft
+                ? PathGeometryHelper.CreatePolylinePath(_scratchCanvasPoints)
+                : PathGeometryHelper.CreateSmoothPath(_scratchCanvasPoints);
             geometry.Freeze();
             if (!isDraft && routeId is { } cacheId)
                 StoreRouteGeometry(cacheId, imagePoints, geometry);

@@ -28,6 +28,86 @@ public static class PathGeometryHelper
         return simplified.Count >= 2 ? simplified : thinned;
     }
 
+    /// <summary>
+    /// Лёгкий предпросмотр при рисовании: только прореживание по дистанции,
+    /// без Douglas–Peucker (дорого на каждом движении мыши).
+    /// </summary>
+    public static List<Point> PrepareDraftPolyline(
+        IReadOnlyList<Point> rawPoints,
+        double captureMinDistance = DefaultCaptureMinDistance,
+        int maxPreviewPoints = 96)
+    {
+        if (rawPoints.Count == 0)
+            return [];
+
+        if (rawPoints.Count == 1)
+            return [rawPoints[0]];
+
+        var thinned = ThinByDistance(rawPoints, captureMinDistance);
+        if (thinned.Count < 2)
+            return [rawPoints[0], rawPoints[^1]];
+
+        return CapPointCount(thinned, maxPreviewPoints);
+    }
+
+    /// <summary>Простая ломаная без Bezier — для черновика маршрута/области.</summary>
+    public static PathGeometry CreatePolylinePath(IReadOnlyList<Point> points)
+    {
+        var geometry = new PathGeometry();
+        if (points.Count == 0)
+            return geometry;
+
+        var figure = new PathFigure
+        {
+            StartPoint = points[0],
+            IsClosed = false,
+            IsFilled = false
+        };
+
+        if (points.Count == 1)
+        {
+            geometry.Figures.Add(figure);
+            return geometry;
+        }
+
+        if (points.Count == 2)
+        {
+            figure.Segments.Add(new LineSegment(points[1], true));
+        }
+        else
+        {
+            var poly = new PointCollection(points.Count - 1);
+            for (var i = 1; i < points.Count; i++)
+                poly.Add(points[i]);
+            figure.Segments.Add(new PolyLineSegment(poly, true));
+        }
+
+        geometry.Figures.Add(figure);
+        return geometry;
+    }
+
+    private static List<Point> CapPointCount(List<Point> points, int maxPoints)
+    {
+        if (points.Count <= maxPoints || maxPoints < 3)
+            return points;
+
+        var result = new List<Point>(maxPoints) { points[0] };
+        var inner = maxPoints - 2;
+        for (var i = 1; i <= inner; i++)
+        {
+            var index = (int)Math.Round(i * (points.Count - 1) / (double)(inner + 1));
+            index = Math.Clamp(index, 1, points.Count - 2);
+            var candidate = points[index];
+            if (result[^1] != candidate)
+                result.Add(candidate);
+        }
+
+        if (result[^1] != points[^1])
+            result.Add(points[^1]);
+
+        return result;
+    }
+
     public static double GetTotalLength(IList<Point> points)
     {
         if (points.Count < 2)

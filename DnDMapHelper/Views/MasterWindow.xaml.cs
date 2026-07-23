@@ -21,6 +21,8 @@ public partial class MasterWindow : Window
     private bool _isDrawingRegion;
     private readonly List<Point> _pathPointsImage = [];
     private readonly List<Point> _regionPointsImage = [];
+    private DateTime _lastDraftPreviewUtc = DateTime.MinValue;
+    private const int DraftPreviewMinIntervalMs = 32;
     private PlayerWindow? _playerWindow;
     private readonly PartyMovementController _movement = PartyMovementController.Current;
     private string? _sessionFilePath;
@@ -42,8 +44,12 @@ public partial class MasterWindow : Window
         UpdateMoveButton();
         _session.PropertyChanged += (_, e) =>
         {
-            // PartyDisplayPosition updates every animation frame — skip status rebuild.
-            if (e.PropertyName is not nameof(GameSession.PartyDisplayPosition))
+            // Frequent live updates while drawing — skip status rebuild.
+            if (e.PropertyName is not nameof(GameSession.PartyDisplayPosition)
+                and not nameof(GameSession.DraftPath)
+                and not nameof(GameSession.HasDraftPath)
+                and not nameof(GameSession.DraftRegionOutline)
+                and not nameof(GameSession.HasDraftRegionOutline))
                 UpdateStatus();
 
             if (e.PropertyName is nameof(GameSession.Routes) or nameof(GameSession.SelectedRouteIndex))
@@ -777,7 +783,7 @@ public partial class MasterWindow : Window
                 Distance(_pathPointsImage[^1], imagePoint) > PathGeometryHelper.DefaultCaptureMinDistance)
             {
                 _pathPointsImage.Add(imagePoint);
-                _session.DraftPath = BuildSmoothedPathWithEndpoints(_pathPointsImage);
+                TryUpdatePathDraftPreview(force: false);
             }
         }
         else if (_isDrawingRegion && e.LeftButton == MouseButtonState.Pressed)
@@ -790,7 +796,7 @@ public partial class MasterWindow : Window
                 Distance(_regionPointsImage[^1], imagePoint) > PathGeometryHelper.DefaultCaptureMinDistance)
             {
                 _regionPointsImage.Add(imagePoint);
-                _session.DraftRegionOutline = RegionGeometryHelper.PrepareDraftOutline(_regionPointsImage);
+                TryUpdateRegionDraftPreview(force: false);
             }
         }
     }
@@ -833,13 +839,15 @@ public partial class MasterWindow : Window
         _pathPointsImage.Clear();
         _pathPointsImage.Add(_session.GetNextRouteStartPoint());
         _pathPointsImage.Add(imagePoint);
-        _session.DraftPath = BuildSmoothedPathWithEndpoints(_pathPointsImage);
+        TryUpdatePathDraftPreview(force: true);
         return true;
     }
 
     private void FinishPathDrawing()
     {
         _isDrawingPath = false;
+        TryUpdatePathDraftPreview(force: true);
+
         if (!_session.HasSelectedTarget || _pathPointsImage.Count < 2)
         {
             ClearPathDraft();
@@ -908,6 +916,9 @@ public partial class MasterWindow : Window
     private List<Point> BuildSmoothedPathWithEndpoints(List<Point> stroke) =>
         BuildPathWithEndpoints(PathGeometryHelper.PrepareOpenPolyline(stroke));
 
+    private List<Point> BuildDraftPathWithEndpoints(List<Point> stroke) =>
+        BuildPathWithEndpoints(PathGeometryHelper.PrepareDraftPolyline(stroke));
+
     private List<Point> BuildPathWithEndpoints(List<Point> stroke)
     {
         if (stroke.Count == 0)
@@ -920,17 +931,38 @@ public partial class MasterWindow : Window
         return result;
     }
 
+    private void TryUpdatePathDraftPreview(bool force)
+    {
+        var now = DateTime.UtcNow;
+        if (!force && (now - _lastDraftPreviewUtc).TotalMilliseconds < DraftPreviewMinIntervalMs)
+            return;
+
+        _lastDraftPreviewUtc = now;
+        _session.DraftPath = BuildDraftPathWithEndpoints(_pathPointsImage);
+    }
+
+    private void TryUpdateRegionDraftPreview(bool force)
+    {
+        var now = DateTime.UtcNow;
+        if (!force && (now - _lastDraftPreviewUtc).TotalMilliseconds < DraftPreviewMinIntervalMs)
+            return;
+
+        _lastDraftPreviewUtc = now;
+        _session.DraftRegionOutline = RegionGeometryHelper.PrepareDraftOutline(_regionPointsImage);
+    }
+
     private void StartRegionDrawing(Point imagePoint)
     {
         _isDrawingRegion = true;
         _regionPointsImage.Clear();
         _regionPointsImage.Add(imagePoint);
-        _session.DraftRegionOutline = _regionPointsImage;
+        TryUpdateRegionDraftPreview(force: true);
     }
 
     private void FinishRegionDrawing()
     {
         _isDrawingRegion = false;
+        TryUpdateRegionDraftPreview(force: true);
         _session.DraftRegionOutline = [];
 
         if (_regionPointsImage.Count < 2)
