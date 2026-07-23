@@ -1,7 +1,7 @@
 # Builds a ready-to-run Windows zip for GitHub Releases.
 # Usage:
 #   .\scripts\publish-release.ps1
-#   .\scripts\publish-release.ps1 -Version 0.99.0
+#   .\scripts\publish-release.ps1 -Version 1.0.0
 
 [CmdletBinding()]
 param(
@@ -30,11 +30,19 @@ if ([string]::IsNullOrWhiteSpace($Version)) {
     }
 }
 
+[xml]$csprojXml = Get-Content $project
+$informationalVersion = $csprojXml.Project.PropertyGroup.InformationalVersion |
+    Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+    Select-Object -First 1
+if ([string]::IsNullOrWhiteSpace($informationalVersion)) {
+    $informationalVersion = $Version
+}
+
 $publishDir = Join-Path $repoRoot "artifacts\publish\$Runtime"
 $stageDir = Join-Path $repoRoot "artifacts\stage\DnDMapHelper"
 $zipPath = Join-Path $repoRoot "artifacts\DnDMapHelper-v$Version-$Runtime.zip"
 
-Write-Host "Publishing DnDMapHelper $Version ($Runtime, self-contained)..."
+Write-Host "Publishing DnDMapHelper $Version (display: $informationalVersion, $Runtime, self-contained)..."
 
 if (Test-Path $publishDir) { Remove-Item $publishDir -Recurse -Force }
 if (Test-Path $stageDir) { Remove-Item $stageDir -Recurse -Force }
@@ -51,7 +59,7 @@ dotnet publish $project `
     -p:DebugType=None `
     -p:DebugSymbols=false `
     -p:Version=$Version `
-    -p:InformationalVersion=$Version
+    -p:InformationalVersion=$informationalVersion
 
 if ($LASTEXITCODE -ne 0) {
     throw "dotnet publish failed with exit code $LASTEXITCODE"
@@ -61,7 +69,7 @@ Copy-Item $publishDir $stageDir -Recurse -Force
 
 $readmePath = Join-Path $stageDir "README.txt"
 @"
-DnDMapHelper v$Version
+DnDMapHelper v$informationalVersion ($Version)
 ======================
 
 Как запустить
@@ -85,7 +93,12 @@ dndtools.lebedev@proton.me
 "@ | Set-Content -Path $readmePath -Encoding UTF8
 
 if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
-Compress-Archive -Path $stageDir -DestinationPath $zipPath -CompressionLevel Optimal
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+[System.IO.Compression.ZipFile]::CreateFromDirectory(
+    $stageDir,
+    $zipPath,
+    [System.IO.Compression.CompressionLevel]::Optimal,
+    $true)
 
 Write-Host ""
 Write-Host "Ready:"

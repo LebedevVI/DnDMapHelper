@@ -7,7 +7,7 @@ public static class AboutContent
     public const string WindowTitle = "О программе";
     public const string AppName = "Карта приключений";
     public const string Tagline = "Помощник мастера для игры по карте";
-    public const string DisplayVersion = "0.99beta";
+    public const string DisplayVersion = "1.0";
     public const string Summary =
         "Карта у мастера, экран для игроков — метки, маршруты, сетка, квесты и свитки с описаниями.";
     public const string ContactLabel = "По всем вопросам:";

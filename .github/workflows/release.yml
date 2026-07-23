@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version without v prefix (e.g. 0.99.0). Used only for workflow_dispatch."
+        description: "Version without v prefix (e.g. 1.0.0). Used only for workflow_dispatch."
         required: false
         default: ""
 
