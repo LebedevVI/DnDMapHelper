@@ -12,6 +12,10 @@ public sealed class SessionSaveData
     public Guid? SelectedQuestId { get; set; }
     public int SelectedRouteIndex { get; set; } = -1;
 
+    public bool ShowMapGrid { get; set; } = true;
+    public double GridCellSizePixels { get; set; } = 64;
+    public double KilometersPerCell { get; set; } = 1;
+
     public List<TargetMarkerDto> Targets { get; set; } = [];
     public List<MapRegionDto> Regions { get; set; } = [];
     public List<EncounterPointDto> Encounters { get; set; } = [];

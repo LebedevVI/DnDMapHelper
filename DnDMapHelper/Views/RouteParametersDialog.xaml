@@ -1,0 +1,50 @@
+<Window x:Class="DnDMapHelper.Views.RouteParametersDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Параметры маршрута"
+        Width="480" Height="560"
+        MinWidth="420" MinHeight="480"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResizeWithGrip"
+        Style="{StaticResource FantasyWindow}">
+    <Border Style="{StaticResource FantasyPanel}" Margin="12">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock x:Name="TitleText" Grid.Row="0" Style="{StaticResource FantasyTitle}"
+                       FontSize="18" Margin="0,0,0,8" TextWrapping="Wrap"/>
+
+            <TextBlock x:Name="DistanceText" Grid.Row="1" FontSize="13" FontWeight="SemiBold"
+                       TextWrapping="Wrap" Margin="0,0,0,12"
+                       Foreground="{StaticResource GoldBrush}"/>
+
+            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <Border Background="#33C9A86C" CornerRadius="4" Padding="10" Margin="0,0,0,8">
+                        <StackPanel x:Name="RoadPanel"/>
+                    </Border>
+                    <Border Background="#28C9A86C" CornerRadius="4" Padding="10" Margin="0,0,0,8">
+                        <StackPanel x:Name="CrossCountryPanel"/>
+                    </Border>
+                    <Border Background="#1EC9A86C" CornerRadius="4" Padding="10" Margin="0,0,0,8">
+                        <StackPanel x:Name="DifficultPanel"/>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
+            <TextBlock x:Name="RulesText" Grid.Row="3" FontSize="11" FontStyle="Italic"
+                       TextWrapping="Wrap" Opacity="0.85" Margin="0,8,0,12"
+                       Foreground="{StaticResource InkBrush}"/>
+
+            <Button Grid.Row="4" Content="Закрыть" Style="{StaticResource FantasyButton}"
+                    HorizontalAlignment="Right" Width="120" IsDefault="True" IsCancel="True"
+                    Click="Close_Click"/>
+        </Grid>
+    </Border>
+</Window>

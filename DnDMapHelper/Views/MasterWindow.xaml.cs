@@ -3,6 +3,7 @@ using System.Windows.Threading;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using DnDMapHelper.Helpers;
 using DnDMapHelper.Models;
@@ -28,6 +29,7 @@ public partial class MasterWindow : Window
     {
         InitializeComponent();
         ToolNavigate.IsChecked = true;
+        ToggleMapGrid.IsChecked = _session.ShowMapGrid;
         RouteList.ItemsSource = _session.Routes;
         QuestJournal.StatusMessageRequested += msg => UpdateStatus(msg);
         _session.Routes.CollectionChanged += (_, _) => Dispatcher.BeginInvoke(SyncRouteList);
@@ -75,6 +77,77 @@ public partial class MasterWindow : Window
     private void ZoomOut_Click(object sender, RoutedEventArgs e) => MapView.ZoomOut();
 
     private void ResetZoom_Click(object sender, RoutedEventArgs e) => MapView.ResetZoom();
+
+    private void ToggleMapGrid_Checked(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded)
+            return;
+
+        _session.ShowMapGrid = ToggleMapGrid.IsChecked == true;
+        UpdateStatus(_session.ShowMapGrid
+            ? "Сетка на экране мастера включена."
+            : "Сетка скрыта.");
+    }
+
+    private void MapGridSettings_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_session.HasMap)
+        {
+            UpdateStatus("Сначала загрузите карту — затем настройте сетку.");
+            return;
+        }
+
+        var dialog = new MapGridDialog { Owner = this };
+        if (dialog.ShowDialog() != true)
+            return;
+
+        ToggleMapGrid.IsChecked = _session.ShowMapGrid;
+        MapView.Refresh();
+        UpdateStatus(
+            $"Сетка: клетка {_session.GridCellSizePixels:0.##} px = {_session.KilometersPerCell:0.####} км.");
+    }
+
+    private void RouteList_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        var item = FindAncestor<ListBoxItem>(e.OriginalSource as DependencyObject);
+        if (item is null)
+            return;
+
+        item.IsSelected = true;
+        item.Focus();
+    }
+
+    private void RouteParametersMenu_Click(object sender, RoutedEventArgs e) =>
+        ShowSelectedRouteParameters();
+
+    private void ShowSelectedRouteParameters()
+    {
+        if (RouteList.SelectedItem is not MovementRoute route)
+        {
+            UpdateStatus("Выберите маршрут в списке (ПКМ или кнопка «Параметры…»).");
+            return;
+        }
+
+        var estimate = RouteTravelHelper.Estimate(
+            route.Points,
+            _session.GridCellSizePixels,
+            _session.KilometersPerCell);
+
+        var dialog = new RouteParametersDialog(route, estimate) { Owner = this };
+        dialog.ShowDialog();
+    }
+
+    private static T? FindAncestor<T>(DependencyObject? current) where T : DependencyObject
+    {
+        while (current is not null)
+        {
+            if (current is T match)
+                return match;
+            current = VisualTreeHelper.GetParent(current);
+        }
+
+        return null;
+    }
 
     private void LoadMap_Click(object sender, RoutedEventArgs e)
     {
@@ -211,6 +284,7 @@ public partial class MasterWindow : Window
 
     private void RefreshAfterSessionChange()
     {
+        ToggleMapGrid.IsChecked = _session.ShowMapGrid;
         SyncRouteList();
         MapView.ResetZoom();
         MapView.Refresh();
@@ -295,14 +369,25 @@ public partial class MasterWindow : Window
             return;
         }
 
-        var active = _session.ActiveRoute;
         var selected = RouteList.SelectedIndex;
-        if (selected == 0 && active is not null)
-            RouteQueueHint.Text = $"Следующий для игроков: {active.DisplayName}";
-        else if (selected >= 0 && selected < _session.Routes.Count)
-            RouteQueueHint.Text = $"Просмотр #{_session.Routes[selected].Order} (в очереди)";
-        else
-            RouteQueueHint.Text = $"В очереди: {_session.Routes.Count}";
+        if (selected >= 0 && selected < _session.Routes.Count)
+        {
+            var selectedRoute = _session.Routes[selected];
+            var estimate = RouteTravelHelper.Estimate(
+                selectedRoute.Points,
+                _session.GridCellSizePixels,
+                _session.KilometersPerCell);
+            if (estimate.HasScale)
+                RouteQueueHint.Text = $"{selectedRoute.DisplayName}: {RouteTravelHelper.FormatDistanceKm(estimate.DistanceKm)}. ПКМ — параметры.";
+            else
+                RouteQueueHint.Text = $"{selectedRoute.DisplayName}. Настройте сетку (км), чтобы считать путь. ПКМ — параметры.";
+            return;
+        }
+
+        var active = _session.ActiveRoute;
+        RouteQueueHint.Text = active is not null
+            ? $"Следующий для игроков: {active.DisplayName}. ПКМ — параметры."
+            : $"В очереди: {_session.Routes.Count}. ПКМ по маршруту — параметры.";
     }
 
     private void HelpButton_Click(object sender, RoutedEventArgs e)

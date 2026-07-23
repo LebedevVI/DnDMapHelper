@@ -88,6 +88,9 @@ public static class SessionPersistenceService
             SelectedEncounterId = session.SelectedEncounterId,
             SelectedQuestId = session.SelectedQuestId,
             SelectedRouteIndex = session.SelectedRouteIndex,
+            ShowMapGrid = session.ShowMapGrid,
+            GridCellSizePixels = session.GridCellSizePixels,
+            KilometersPerCell = session.KilometersPerCell,
             Targets = session.Targets.Select(t => new TargetMarkerDto
             {
                 Id = t.Id,

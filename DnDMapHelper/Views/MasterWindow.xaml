@@ -29,6 +29,14 @@
                             ToolTip="Отдалить карту" Click="ZoomOut_Click"/>
                     <Button Content="⊡" Style="{StaticResource FantasyCompactButton}" Width="28" Padding="0"
                             ToolTip="Исходный размер карты" Click="ResetZoom_Click"/>
+                    <ToggleButton x:Name="ToggleMapGrid" Content="Сетка"
+                                  Style="{StaticResource FantasyCompactToolButton}"
+                                  ToolTip="Показать или скрыть сетку на экране мастера"
+                                  Checked="ToggleMapGrid_Checked"
+                                  Unchecked="ToggleMapGrid_Checked"/>
+                    <Button Content="км" Style="{StaticResource FantasyCompactButton}" MinWidth="32" Padding="4,0"
+                            ToolTip="Параметры сетки: размер клетки и километры"
+                            Click="MapGridSettings_Click"/>
                 </StackPanel>
 
                 <WrapPanel Grid.Column="1" HorizontalAlignment="Center">
@@ -54,7 +62,7 @@
                                   Unchecked="ToggleQuestJournal_Checked"/>
                     <ToggleButton x:Name="ToggleRouteJournal" Content="Маршруты"
                                   Style="{StaticResource FantasyCompactToolButton}"
-                                  ToolTip="Очередь маршрутов — список, просмотр, очистка"
+                                  ToolTip="Очередь маршрутов — список, ПКМ: параметры путешествия"
                                   Checked="ToggleRouteJournal_Checked"
                                   Unchecked="ToggleRouteJournal_Checked"/>
                     <Button x:Name="MoveButton" Content="⚔"
@@ -119,7 +127,15 @@
 
                 <ListBox x:Name="RouteList" Grid.Row="1"
                          SelectionChanged="RouteList_SelectionChanged"
+                         PreviewMouseRightButtonDown="RouteList_PreviewMouseRightButtonDown"
                          FontSize="12">
+                    <ListBox.ContextMenu>
+                        <ContextMenu Style="{StaticResource FantasyContextMenu}">
+                            <MenuItem Header="Параметры маршрута…"
+                                      Style="{StaticResource FantasyMenuItem}"
+                                      Click="RouteParametersMenu_Click"/>
+                        </ContextMenu>
+                    </ListBox.ContextMenu>
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding DisplayName}" TextWrapping="Wrap" Padding="2,1"/>
@@ -130,6 +146,9 @@
                 <StackPanel Grid.Row="2" Margin="0,6,0,0">
                     <TextBlock x:Name="RouteQueueHint" FontSize="10" FontStyle="Italic"
                                TextWrapping="Wrap" Opacity="0.8" Margin="0,0,0,4"/>
+                    <Button Content="Параметры…" Style="{StaticResource FantasyCompactButton}"
+                            ToolTip="Протяжённость, срок и расход пайков (также ПКМ по маршруту)"
+                            Click="RouteParametersMenu_Click"/>
                     <Button Content="Очистить" Style="{StaticResource FantasyCompactButton}"
                             ToolTip="Очистить все маршруты" Click="ClearRoutes_Click"/>
                     <Button Content="Удалить" Style="{StaticResource FantasyCompactButton}"

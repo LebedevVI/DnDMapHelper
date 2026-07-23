@@ -63,6 +63,7 @@ public partial class MapCanvas : UserControl
     private static readonly SolidColorBrush EncounterLabelBackground = CreateFrozenBrush(210, 48, 27, 12);
     private static readonly SolidColorBrush RegionLabelForeground = CreateFrozenBrush(61, 41, 20);
     private static readonly SolidColorBrush RegionLabelBackground = CreateFrozenBrush(180, 244, 232, 200);
+    private static readonly SolidColorBrush MapGridStroke = CreateFrozenBrush(190, 210, 170, 70);
 
     private sealed class RouteGeometryCache
     {
@@ -231,7 +232,10 @@ public partial class MapCanvas : UserControl
             or nameof(GameSession.SelectedRegionId)
             or nameof(GameSession.SelectedEncounterId)
             or nameof(GameSession.Quests)
-            or nameof(GameSession.SelectedQuestId))
+            or nameof(GameSession.SelectedQuestId)
+            or nameof(GameSession.ShowMapGrid)
+            or nameof(GameSession.GridCellSizePixels)
+            or nameof(GameSession.KilometersPerCell))
         {
             if (e.PropertyName is nameof(GameSession.Quests) or nameof(GameSession.SelectedQuestId))
                 InvalidateRouteGeometryCache();
@@ -411,6 +415,9 @@ public partial class MapCanvas : UserControl
 
     private void DrawStaticOverlay(QuestMapVisualState questState, double scale)
     {
+        if (!IsPlayerMode)
+            DrawMapGrid(scale);
+
         foreach (var region in _session.Regions)
         {
             if (ShouldDrawRegion(region, questState))
@@ -429,6 +436,54 @@ public partial class MapCanvas : UserControl
 
         if (!IsPlayerMode)
             DrawEncounters(scale);
+    }
+
+    private void DrawMapGrid(double scale)
+    {
+        if (!_session.ShowMapGrid || _session.MapImage is null)
+            return;
+
+        var cell = _session.GridCellSizePixels;
+        if (cell < 4)
+            return;
+
+        var mapWidth = _session.MapImage.PixelWidth;
+        var mapHeight = _session.MapImage.PixelHeight;
+        if (mapWidth <= 0 || mapHeight <= 0)
+            return;
+
+        var cols = (int)Math.Ceiling(mapWidth / cell);
+        var rows = (int)Math.Ceiling(mapHeight / cell);
+        if (cols > 400 || rows > 400)
+            return;
+
+        var geometry = new StreamGeometry { FillRule = FillRule.Nonzero };
+        using (var ctx = geometry.Open())
+        {
+            for (var x = 0.0; x <= mapWidth + 0.01; x += cell)
+            {
+                var contentX = x * scale;
+                ctx.BeginFigure(new Point(contentX, 0), false, false);
+                ctx.LineTo(new Point(contentX, mapHeight * scale), true, false);
+            }
+
+            for (var y = 0.0; y <= mapHeight + 0.01; y += cell)
+            {
+                var contentY = y * scale;
+                ctx.BeginFigure(new Point(0, contentY), false, false);
+                ctx.LineTo(new Point(mapWidth * scale, contentY), true, false);
+            }
+        }
+
+        geometry.Freeze();
+
+        StaticOverlayCanvas.Children.Add(new Path
+        {
+            Data = geometry,
+            Stroke = MapGridStroke,
+            StrokeThickness = Math.Clamp(1.8 / Math.Max(0.35, scale), 1.4, 3.5),
+            SnapsToDevicePixels = true
+        });
     }
 
     private void DrawDynamicOverlay(double scale)

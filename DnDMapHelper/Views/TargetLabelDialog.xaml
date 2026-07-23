@@ -22,11 +22,10 @@
                 <TextBlock Text="Название цели" Margin="0,0,0,8" FontWeight="SemiBold"/>
                 <TextBlock Text="Например: Логово врага, Мост, Деревня"
                            Margin="0,0,0,10" FontStyle="Italic" Opacity="0.75"/>
-                <TextBox x:Name="LabelBox" Style="{StaticResource FantasyTextBox}"
-                         MinHeight="56" Height="56"
-                         VerticalContentAlignment="Center"
+                <TextBox x:Name="LabelBox" Style="{StaticResource FantasySingleLineTextBox}"
+                         Height="48" MinHeight="48"
                          FontSize="15"
-                         AcceptsReturn="False" TextWrapping="NoWrap" MaxLength="64"/>
+                         MaxLength="64"/>
             </StackPanel>
 
             <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">

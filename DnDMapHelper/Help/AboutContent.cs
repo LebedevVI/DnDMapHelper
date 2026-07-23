@@ -9,7 +9,7 @@ public static class AboutContent
     public const string Tagline = "Помощник мастера для игры по карте";
     public const string DisplayVersion = "0.99beta";
     public const string Summary =
-        "Карта у мастера, экран для игроков — метки, маршруты, квесты и свитки с описаниями.";
+        "Карта у мастера, экран для игроков — метки, маршруты, сетка, квесты и свитки с описаниями.";
     public const string ContactLabel = "По всем вопросам:";
     public const string ContactEmail = "dndtools.lebedev@proton.me";
     public const string ContactEmailUrl = "mailto:dndtools.lebedev@proton.me";
@@ -18,8 +18,8 @@ public static class AboutContent
 
     public static readonly string[] Highlights =
     [
-        "Мастер готовит карту и ведёт отряд",
-        "Игроки смотрят на свой экран",
+        "Мастер готовит карту, сетку и ведёт отряд",
+        "Игроки смотрят на свой экран без служебной разметки",
         "Подробности — кнопка «?» внизу"
     ];
 

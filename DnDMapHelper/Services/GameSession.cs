@@ -31,6 +31,9 @@ public sealed class GameSession : INotifyPropertyChanged
     private Guid? _selectedEncounterId;
     private Guid? _pendingEncounterId;
     private double _pausedRouteProgress;
+    private bool _showMapGrid = true;
+    private double _gridCellSizePixels = 64;
+    private double _kilometersPerCell = 1;
 
     public GameSession()
     {
@@ -51,6 +54,46 @@ public sealed class GameSession : INotifyPropertyChanged
     }
 
     public bool HasMap => MapImage is not null;
+
+    public bool ShowMapGrid
+    {
+        get => _showMapGrid;
+        set
+        {
+            if (_showMapGrid == value)
+                return;
+            _showMapGrid = value;
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>Размер клетки сетки в пикселях изображения карты.</summary>
+    public double GridCellSizePixels
+    {
+        get => _gridCellSizePixels;
+        set
+        {
+            var clamped = Math.Clamp(value, 4, 4096);
+            if (Math.Abs(_gridCellSizePixels - clamped) < 0.0001)
+                return;
+            _gridCellSizePixels = clamped;
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>Сколько километров соответствует одной клетке сетки.</summary>
+    public double KilometersPerCell
+    {
+        get => _kilometersPerCell;
+        set
+        {
+            var clamped = Math.Max(0.0001, value);
+            if (Math.Abs(_kilometersPerCell - clamped) < 0.0000001)
+                return;
+            _kilometersPerCell = clamped;
+            OnPropertyChanged();
+        }
+    }
 
     public Point? PartyPosition
     {
@@ -699,6 +742,10 @@ public sealed class GameSession : INotifyPropertyChanged
         SelectedRegionId = ResolveSelection(data.SelectedRegionId, Regions.Select(r => r.Id));
         SelectedEncounterId = ResolveSelection(data.SelectedEncounterId, Encounters.Select(e => e.Id));
         SelectQuest(ResolveSelection(data.SelectedQuestId, Quests.Select(q => q.Id)));
+
+        ShowMapGrid = data.ShowMapGrid;
+        GridCellSizePixels = data.GridCellSizePixels > 0 ? data.GridCellSizePixels : 64;
+        KilometersPerCell = data.KilometersPerCell > 0 ? data.KilometersPerCell : 1;
 
         if (Routes.Count == 0)
             SelectedRouteIndex = -1;
